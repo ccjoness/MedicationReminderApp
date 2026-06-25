@@ -48,7 +48,8 @@ export default function LoginScreen() {
   };
 
   const handleGoogleSignIn = async () => {
-    const redirectUrl = makeRedirectUri({ scheme: 'lumidose', path: 'auth/callback' });
+    // `native` forces the deep link scheme on-device instead of localhost
+    const redirectUrl = makeRedirectUri({ native: 'lumidose://auth/callback' });
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: redirectUrl, skipBrowserRedirect: true },
@@ -72,7 +73,8 @@ export default function LoginScreen() {
   };
 
   const handleAppleSignIn = async () => {
-    const redirectUrl = makeRedirectUri({ scheme: 'lumidose', path: 'auth/callback' });
+    // `native` forces the deep link scheme on-device instead of localhost
+    const redirectUrl = makeRedirectUri({ native: 'lumidose://auth/callback' });
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'apple',
       options: { redirectTo: redirectUrl, skipBrowserRedirect: true },
