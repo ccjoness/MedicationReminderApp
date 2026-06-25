@@ -14,8 +14,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as WebBrowser from 'expo-web-browser';
-import { makeRedirectUri, useAuthRequest } from 'expo-auth-session';
-import * as AuthSession from 'expo-auth-session';
+import { makeRedirectUri } from 'expo-auth-session';
 import { useAuthStore } from '@/stores/authStore';
 import { supabase } from '@/lib/supabase';
 

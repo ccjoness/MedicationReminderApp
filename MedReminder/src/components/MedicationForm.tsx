@@ -143,7 +143,7 @@ export function MedicationForm({
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.7,
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
       });
     }
 

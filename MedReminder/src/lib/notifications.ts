@@ -7,7 +7,8 @@ import type { Medication, MedicationSchedule } from '../types';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
+    shouldShowBanner: true,  // replaces shouldShowAlert (removed in expo-notifications v0.32)
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
   }),
