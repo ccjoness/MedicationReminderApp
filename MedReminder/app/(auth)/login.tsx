@@ -48,7 +48,7 @@ export default function LoginScreen() {
   };
 
   const handleGoogleSignIn = async () => {
-    const redirectUrl = makeRedirectUri({ scheme: 'med-reminder', path: 'auth/callback' });
+    const redirectUrl = makeRedirectUri({ scheme: 'lumidose', path: 'auth/callback' });
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: redirectUrl, skipBrowserRedirect: true },
@@ -72,7 +72,7 @@ export default function LoginScreen() {
   };
 
   const handleAppleSignIn = async () => {
-    const redirectUrl = makeRedirectUri({ scheme: 'med-reminder', path: 'auth/callback' });
+    const redirectUrl = makeRedirectUri({ scheme: 'lumidose', path: 'auth/callback' });
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'apple',
       options: { redirectTo: redirectUrl, skipBrowserRedirect: true },
@@ -102,7 +102,7 @@ export default function LoginScreen() {
     >
       <View style={styles.header}>
         <Text variant="headlineMedium" style={styles.title}>
-          MedReminder
+          Lumidose
         </Text>
         <Text variant="bodyLarge" style={styles.subtitle}>
           Your personal medication tracker

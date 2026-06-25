@@ -26,7 +26,7 @@ import type { NotificationData } from '@/types';
 // Background task — reschedule notifications & mark missed doses
 // ---------------------------------------------------------------------------
 
-const BACKGROUND_TASK = 'med-reminder-background-reschedule';
+const BACKGROUND_TASK = 'lumidose-background-reschedule';
 
 TaskManager.defineTask(BACKGROUND_TASK, async () => {
   try {
