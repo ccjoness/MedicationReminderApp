@@ -14,7 +14,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as WebBrowser from 'expo-web-browser';
-import { makeRedirectUri } from 'expo-auth-session';
+import * as Linking from 'expo-linking';
 import { useAuthStore } from '@/stores/authStore';
 import { supabase } from '@/lib/supabase';
 
@@ -48,8 +48,8 @@ export default function LoginScreen() {
   };
 
   const handleGoogleSignIn = async () => {
-    // `native` forces the deep link scheme on-device instead of localhost
-    const redirectUrl = makeRedirectUri({ native: 'lumidose://auth/callback' });
+    // Linking.createURL returns exp://... in Expo Go and lumidose://... in builds
+    const redirectUrl = Linking.createURL('auth/callback');
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: redirectUrl, skipBrowserRedirect: true },
@@ -73,8 +73,8 @@ export default function LoginScreen() {
   };
 
   const handleAppleSignIn = async () => {
-    // `native` forces the deep link scheme on-device instead of localhost
-    const redirectUrl = makeRedirectUri({ native: 'lumidose://auth/callback' });
+    // Linking.createURL returns exp://... in Expo Go and lumidose://... in builds
+    const redirectUrl = Linking.createURL('auth/callback');
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'apple',
       options: { redirectTo: redirectUrl, skipBrowserRedirect: true },
