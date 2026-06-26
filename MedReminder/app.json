@@ -25,10 +25,12 @@
       },
       "package": "com.darkmattersoftware.lumidose",
       "permissions": [
-        "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE",
-        "USE_EXACT_ALARM",
-        "SCHEDULE_EXACT_ALARM"
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.USE_EXACT_ALARM",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.WAKE_LOCK"
       ]
     },
     "web": {
@@ -67,6 +69,13 @@
     "scheme": "lumidose",
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e34fdd43-d731-41e4-a755-4ecaef6384dd"
+      }
+    },
+    "owner": "ccjoness"
   }
 }
