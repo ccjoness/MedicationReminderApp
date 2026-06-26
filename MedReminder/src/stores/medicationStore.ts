@@ -51,8 +51,9 @@ export const useMedicationStore = create<MedicationState>((set, get) => ({
 
   addMedication: async (medicationData, scheduleData) => {
     const {
-      data: { user },
-    } = await supabase.auth.getUser();
+      data: { session },
+    } = await supabase.auth.getSession();
+    const user = session?.user;
     if (!user) throw new Error('Not authenticated');
 
     // Insert medication row
