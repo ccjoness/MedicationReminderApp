@@ -5,7 +5,7 @@ import { PaperProvider, MD3LightTheme } from 'react-native-paper';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
-import * as BackgroundFetch from 'expo-background-fetch';
+import * as BackgroundTask from 'expo-background-task';
 
 import { useAuthStore } from '@/stores/authStore';
 import { useMedicationStore } from '@/stores/medicationStore';
@@ -33,7 +33,7 @@ TaskManager.defineTask(BACKGROUND_TASK, async () => {
     const {
       data: { session },
     } = await supabase.auth.getSession();
-    if (!session) return BackgroundFetch.BackgroundFetchResult.NoData;
+    if (!session) return BackgroundTask.BackgroundTaskResult.Success;
 
     // Reschedule notifications
     const { data: medications } = await supabase
@@ -62,9 +62,9 @@ TaskManager.defineTask(BACKGROUND_TASK, async () => {
       .gte('scheduled_at', startYesterday.toISOString())
       .lte('scheduled_at', endYesterday.toISOString());
 
-    return BackgroundFetch.BackgroundFetchResult.NewData;
+    return BackgroundTask.BackgroundTaskResult.Success;
   } catch {
-    return BackgroundFetch.BackgroundFetchResult.Failed;
+    return BackgroundTask.BackgroundTaskResult.Failed;
   }
 });
 
@@ -108,10 +108,9 @@ export default function RootLayout() {
     registerNotificationCategories();
 
     // Register background task (silently fails on simulators)
-    BackgroundFetch.registerTaskAsync(BACKGROUND_TASK, {
-      minimumInterval: 60 * 60 * 24, // 24 hours
-      stopOnTerminate: false,
-      startOnBoot: true,
+    // minimumInterval is in minutes for expo-background-task
+    BackgroundTask.registerTaskAsync(BACKGROUND_TASK, {
+      minimumInterval: 60 * 24, // 24 hours in minutes
     }).catch(() => undefined);
 
     // Handle notification interaction responses

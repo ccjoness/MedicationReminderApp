@@ -63,7 +63,7 @@
           "cameraPermission": "Lumidose uses the camera so you can take a photo of your medication."
         }
       ],
-      "expo-background-fetch",
+      "expo-background-task",
       "expo-task-manager"
     ],
     "scheme": "lumidose",
