@@ -47,53 +47,38 @@ export default function LoginScreen() {
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    // Linking.createURL returns exp://... in Expo Go and lumidose://... in builds
-    const redirectUrl = Linking.createURL('auth/callback');
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: redirectUrl, skipBrowserRedirect: true },
-    });
-    if (error || !data.url) {
-      Alert.alert('Google Sign In Error', error?.message ?? 'Could not open Google sign in');
-      return;
-    }
-    const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
-    if (result.type === 'success') {
-      const params = new URL(result.url).hash.substring(1);
-      const parsed = Object.fromEntries(new URLSearchParams(params));
-      if (parsed.access_token) {
-        await supabase.auth.setSession({
-          access_token: parsed.access_token,
-          refresh_token: parsed.refresh_token,
-        });
-        router.replace('/(tabs)');
-      }
-    }
-  };
+  const handleOAuthSignIn = async (provider: 'google' | 'apple') => {
+    try {
+      // Linking.createURL returns exp://... in Expo Go and lumidose://... in builds
+      const redirectUrl = Linking.createURL('auth/callback');
 
-  const handleAppleSignIn = async () => {
-    // Linking.createURL returns exp://... in Expo Go and lumidose://... in builds
-    const redirectUrl = Linking.createURL('auth/callback');
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'apple',
-      options: { redirectTo: redirectUrl, skipBrowserRedirect: true },
-    });
-    if (error || !data.url) {
-      Alert.alert('Apple Sign In Error', error?.message ?? 'Could not open Apple sign in');
-      return;
-    }
-    const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
-    if (result.type === 'success') {
-      const params = new URL(result.url).hash.substring(1);
-      const parsed = Object.fromEntries(new URLSearchParams(params));
-      if (parsed.access_token) {
-        await supabase.auth.setSession({
-          access_token: parsed.access_token,
-          refresh_token: parsed.refresh_token,
-        });
-        router.replace('/(tabs)');
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo: redirectUrl, skipBrowserRedirect: true },
+      });
+
+      if (error || !data.url) {
+        Alert.alert('Sign In Error', error?.message ?? 'Could not open sign in');
+        return;
       }
+
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
+
+      if (result.type !== 'success') return;
+
+      // Supabase uses PKCE by default — the callback URL contains ?code=...
+      // exchangeCodeForSession handles both PKCE and legacy implicit flows
+      const { error: sessionError } = await supabase.auth.exchangeCodeForSession(result.url);
+
+      if (sessionError) {
+        Alert.alert('Sign In Error', sessionError.message);
+        return;
+      }
+
+      router.replace('/(tabs)');
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Sign in failed';
+      Alert.alert('Sign In Error', message);
     }
   };
 
@@ -179,7 +164,7 @@ export default function LoginScreen() {
 
         <Button
           mode="outlined"
-          onPress={handleGoogleSignIn}
+          onPress={() => handleOAuthSignIn('google')}
           icon="google"
           style={styles.socialButton}
           contentStyle={styles.buttonContent}
@@ -190,7 +175,7 @@ export default function LoginScreen() {
         {Platform.OS === 'ios' && (
           <Button
             mode="outlined"
-            onPress={handleAppleSignIn}
+            onPress={() => handleOAuthSignIn('apple')}
             icon="apple"
             style={styles.socialButton}
             contentStyle={styles.buttonContent}
