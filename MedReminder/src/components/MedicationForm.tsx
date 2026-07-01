@@ -27,6 +27,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
+import { useAuthStore } from '../stores/authStore';
 import { ScheduleItem } from './ScheduleItem';
 import { DAY_LABELS, dateToTimeString } from '../utils/date';
 import type { Medication, MedicationSchedule } from '../types';
@@ -259,10 +260,8 @@ export function MedicationForm({
 
     setSubmitting(true);
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const user = session?.user;
+      // Read user from Zustand store — already populated when navigated past login
+      const user = useAuthStore.getState().user;
       if (!user) throw new Error('Not authenticated');
 
       const photoUrl = await uploadPhoto(user.id);

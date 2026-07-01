@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
+import { useAuthStore } from './authStore';
 import {
   scheduleNotificationsForMedication,
   cancelNotificationsForMedication,
@@ -50,10 +51,8 @@ export const useMedicationStore = create<MedicationState>((set, get) => ({
   },
 
   addMedication: async (medicationData, scheduleData) => {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    const user = session?.user;
+    // Read user from Zustand store — already populated when navigated past login
+    const user = useAuthStore.getState().user;
     if (!user) throw new Error('Not authenticated');
 
     // Insert medication row
