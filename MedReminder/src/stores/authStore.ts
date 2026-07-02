@@ -11,6 +11,7 @@ interface AuthState {
   initialized: boolean;
   // Actions
   initialize: () => Promise<void>;
+  refreshSession: () => Promise<void>;
   fetchProfile: (userId: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, displayName: string) => Promise<void>;
@@ -66,6 +67,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ profile: null });
       }
     });
+  },
+
+  /**
+   * Re-reads the current session from Supabase and syncs it into the store.
+   * Call this after exchangeCodeForSession to guarantee the store is populated
+   * before navigating, avoiding the race condition with onAuthStateChange.
+   */
+  refreshSession: async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    set({ session, user: session?.user ?? null });
+    if (session?.user) {
+      get().fetchProfile(session.user.id);
+    }
   },
 
   fetchProfile: async (userId) => {

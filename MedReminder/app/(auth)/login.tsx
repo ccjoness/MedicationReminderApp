@@ -28,7 +28,7 @@ type FormData = z.infer<typeof schema>;
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { signIn, loading } = useAuthStore();
+  const { signIn, loading, refreshSession } = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
 
   const {
@@ -74,6 +74,11 @@ export default function LoginScreen() {
         Alert.alert('Sign In Error', sessionError.message);
         return;
       }
+
+      // Explicitly sync the session into the Zustand store before navigating.
+      // onAuthStateChange fires asynchronously and may not have run yet,
+      // which would leave useAuthStore.getState().user as null.
+      await refreshSession();
 
       router.replace('/(tabs)');
     } catch (e: unknown) {
