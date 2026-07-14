@@ -477,28 +477,42 @@ export function MedicationForm({
             {editingScheduleIndex !== null ? 'Edit Time' : 'New Reminder'}
           </Text>
 
-          {showTimePicker && (
-            <DateTimePicker
-              value={draftTime}
-              mode="time"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={(_, date) => {
-                if (date) setDraftTime(date);
-                if (Platform.OS === 'android') setShowTimePicker(false);
-              }}
-            />
-          )}
-
-          {Platform.OS === 'android' && !showTimePicker && (
-            <TouchableOpacity
-              style={styles.timeButton}
-              onPress={() => setShowTimePicker(true)}
-            >
+          {/* Web: native HTML time input rendered via DateTimePicker */}
+          {Platform.OS === 'web' ? (
+            <View style={styles.webTimeRow}>
               <MaterialCommunityIcons name="clock-outline" size={20} color="#6750A4" />
-              <Text style={styles.timeButtonText}>
-                {draftTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </Text>
-            </TouchableOpacity>
+              <DateTimePicker
+                value={draftTime}
+                mode="time"
+                display="default"
+                onChange={(_, date) => { if (date) setDraftTime(date); }}
+              />
+            </View>
+          ) : (
+            <>
+              {showTimePicker && (
+                <DateTimePicker
+                  value={draftTime}
+                  mode="time"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={(_, date) => {
+                    if (date) setDraftTime(date);
+                    if (Platform.OS === 'android') setShowTimePicker(false);
+                  }}
+                />
+              )}
+              {Platform.OS === 'android' && !showTimePicker && (
+                <TouchableOpacity
+                  style={styles.timeButton}
+                  onPress={() => setShowTimePicker(true)}
+                >
+                  <MaterialCommunityIcons name="clock-outline" size={20} color="#6750A4" />
+                  <Text style={styles.timeButtonText}>
+                    {draftTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </>
           )}
 
           <Text variant="bodySmall" style={styles.daysLabel}>
@@ -627,6 +641,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingVertical: 12,
     fontStyle: 'italic',
+  },
+  webTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 4,
   },
   schedulePicker: {
     backgroundColor: '#fff',

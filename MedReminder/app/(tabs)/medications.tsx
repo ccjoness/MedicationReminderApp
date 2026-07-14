@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   FlatList,
@@ -6,15 +6,20 @@ import {
   RefreshControl,
   Alert,
   TouchableOpacity,
+  Platform,
 } from 'react-native';
 import { Text, FAB, ActivityIndicator, Card, IconButton, Chip } from 'react-native-paper';
 import { useRouter } from 'expo-router';
-import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useMedicationStore } from '@/stores/medicationStore';
 import { EmptyState } from '@/components/EmptyState';
 import { timeStringToLabel, DAY_LABELS } from '@/utils/date';
 import type { Medication } from '@/types';
+
+// Swipeable is native-only — import lazily to avoid web bundle errors
+const Swipeable = Platform.OS !== 'web'
+  ? require('react-native-gesture-handler/Swipeable').default
+  : null;
 
 export default function MedicationsScreen() {
   const router = useRouter();
@@ -55,71 +60,80 @@ export default function MedicationsScreen() {
     </TouchableOpacity>
   );
 
+  const renderCardContent = (item: Medication, lowStock: boolean) => (
+    <Card
+      style={styles.card}
+      onPress={() => router.push(`/medications/${item.id}`)}
+    >
+      <View style={styles.cardContent}>
+        <View style={styles.cardHeader}>
+          <View style={styles.nameRow}>
+            <Text variant="titleMedium" style={styles.name}>
+              {item.name}
+            </Text>
+            {lowStock && (
+              <Chip icon="alert" compact style={styles.lowStockChip} textStyle={styles.lowStockText}>
+                Low supply
+              </Chip>
+            )}
+            {/* Web: show delete button inline since swipe-to-delete isn't available */}
+            {Platform.OS === 'web' && (
+              <IconButton
+                icon="trash-can-outline"
+                size={18}
+                iconColor="#C62828"
+                onPress={() => handleDelete(item)}
+              />
+            )}
+          </View>
+          <Text variant="bodySmall" style={styles.dosage}>{item.dosage}</Text>
+        </View>
+
+        {item.schedules && item.schedules.length > 0 && (
+          <View style={styles.schedules}>
+            {item.schedules.map((s) => {
+              const days =
+                s.days_of_week.length === 0
+                  ? 'Every day'
+                  : s.days_of_week.sort((a, b) => a - b).map((d) => DAY_LABELS[d]).join(', ');
+              return (
+                <Text key={s.id} variant="bodySmall" style={styles.scheduleText}>
+                  {timeStringToLabel(s.time_of_day)} — {days}
+                </Text>
+              );
+            })}
+          </View>
+        )}
+
+        <View style={styles.meta}>
+          {item.refill_count !== null && (
+            <Text variant="bodySmall" style={lowStock ? styles.lowStockMeta : styles.metaText}>
+              {item.refill_count} pill(s) remaining
+            </Text>
+          )}
+          <Text variant="bodySmall" style={styles.snoozeText}>
+            Snooze: {item.snooze_interval_minutes} min
+          </Text>
+        </View>
+      </View>
+    </Card>
+  );
+
   const renderItem = ({ item }: { item: Medication }) => {
     const lowStock =
       item.refill_count !== null &&
       item.low_refill_threshold !== null &&
       item.refill_count <= item.low_refill_threshold;
 
+    // Web: plain card with inline delete button
+    if (Platform.OS === 'web' || !Swipeable) {
+      return renderCardContent(item, lowStock);
+    }
+
+    // Native: swipe-to-delete
     return (
       <Swipeable renderRightActions={() => renderRightActions(item)}>
-        <Card
-          style={styles.card}
-          onPress={() => router.push(`/medications/${item.id}`)}
-        >
-          <View style={styles.cardContent}>
-            <View style={styles.cardHeader}>
-              <View style={styles.nameRow}>
-                <Text variant="titleMedium" style={styles.name}>
-                  {item.name}
-                </Text>
-                {lowStock && (
-                  <Chip
-                    icon="alert"
-                    compact
-                    style={styles.lowStockChip}
-                    textStyle={styles.lowStockText}
-                  >
-                    Low supply
-                  </Chip>
-                )}
-              </View>
-              <Text variant="bodySmall" style={styles.dosage}>
-                {item.dosage}
-              </Text>
-            </View>
-
-            {item.schedules && item.schedules.length > 0 && (
-              <View style={styles.schedules}>
-                {item.schedules.map((s) => {
-                  const days =
-                    s.days_of_week.length === 0
-                      ? 'Every day'
-                      : s.days_of_week
-                          .sort((a, b) => a - b)
-                          .map((d) => DAY_LABELS[d])
-                          .join(', ');
-                  return (
-                    <Text key={s.id} variant="bodySmall" style={styles.scheduleText}>
-                      {timeStringToLabel(s.time_of_day)} — {days}
-                    </Text>
-                  );
-                })}
-              </View>
-            )}
-
-            <View style={styles.meta}>
-              {item.refill_count !== null && (
-                <Text variant="bodySmall" style={lowStock ? styles.lowStockMeta : styles.metaText}>
-                  {item.refill_count} pill(s) remaining
-                </Text>
-              )}
-              <Text variant="bodySmall" style={styles.snoozeText}>
-                Snooze: {item.snooze_interval_minutes} min
-              </Text>
-            </View>
-          </View>
-        </Card>
+        {renderCardContent(item, lowStock)}
       </Swipeable>
     );
   };

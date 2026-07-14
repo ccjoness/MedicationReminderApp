@@ -3,7 +3,6 @@ import {
   View,
   StyleSheet,
   TouchableOpacity,
-  Image,
   ScrollView,
   Alert,
   Platform,
@@ -49,9 +48,20 @@ export default function LoginScreen() {
 
   const handleOAuthSignIn = async (provider: 'google' | 'apple') => {
     try {
-      // Linking.createURL returns exp://... in Expo Go and lumidose://... in builds
-      const redirectUrl = Linking.createURL('auth/callback');
+      if (Platform.OS === 'web') {
+        // On web: redirect the entire browser window to Google, then back to /auth/callback
+        const redirectTo = window.location.origin + '/auth/callback';
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider,
+          options: { redirectTo },
+        });
+        if (error) Alert.alert('Sign In Error', error.message);
+        // Browser navigates away — no further code runs
+        return;
+      }
 
+      // Native: open browser session and handle redirect back to the app
+      const redirectUrl = Linking.createURL('auth/callback');
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
         options: { redirectTo: redirectUrl, skipBrowserRedirect: true },
@@ -63,23 +73,16 @@ export default function LoginScreen() {
       }
 
       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
-
       if (result.type !== 'success') return;
 
-      // Supabase uses PKCE by default — the callback URL contains ?code=...
-      // exchangeCodeForSession handles both PKCE and legacy implicit flows
       const { error: sessionError } = await supabase.auth.exchangeCodeForSession(result.url);
-
       if (sessionError) {
         Alert.alert('Sign In Error', sessionError.message);
         return;
       }
 
-      // Explicitly sync the session into the Zustand store before navigating.
-      // onAuthStateChange fires asynchronously and may not have run yet,
-      // which would leave useAuthStore.getState().user as null.
+      // Sync the session into the Zustand store before navigating
       await refreshSession();
-
       router.replace('/(tabs)');
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Sign in failed';
@@ -208,6 +211,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 24,
     backgroundColor: '#fff',
+    maxWidth: 480,
+    alignSelf: 'center',
+    width: '100%',
   },
   header: {
     alignItems: 'center',

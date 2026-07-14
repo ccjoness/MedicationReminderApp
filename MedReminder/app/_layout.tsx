@@ -1,72 +1,65 @@
 import { useEffect } from 'react';
-import { AppState, AppStateStatus } from 'react-native';
+import { AppState, AppStateStatus, Platform } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { PaperProvider, MD3LightTheme } from 'react-native-paper';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import * as Notifications from 'expo-notifications';
-import * as TaskManager from 'expo-task-manager';
-import * as BackgroundTask from 'expo-background-task';
 
 import { useAuthStore } from '@/stores/authStore';
 import { useMedicationStore } from '@/stores/medicationStore';
 import { useLogStore } from '@/stores/logStore';
-import {
-  registerNotificationCategories,
-  rescheduleAllNotifications,
-  scheduleSnoozeNotification,
-  cancelSnoozeNotificationsForDose,
-  sendImmediateNotification,
-  ACTION_TOOK_IT,
-  ACTION_SNOOZE,
-} from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
-import type { NotificationData } from '@/types';
 
 // ---------------------------------------------------------------------------
-// Background task — reschedule notifications & mark missed doses
+// Native-only: background task + notifications
+// These modules use native APIs unavailable on web.
 // ---------------------------------------------------------------------------
 
-const BACKGROUND_TASK = 'lumidose-background-reschedule';
+// TaskManager.defineTask must be called at the module top level on native.
+// We wrap in a Platform check so the module isn't even imported on web.
+if (Platform.OS !== 'web') {
+  // Dynamic requires to avoid importing native modules in the web bundle.
+  const TaskManager = require('expo-task-manager');
+  const BackgroundTask = require('expo-background-task');
+  const {
+    rescheduleAllNotifications,
+  } = require('@/lib/notifications');
 
-TaskManager.defineTask(BACKGROUND_TASK, async () => {
-  try {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session) return BackgroundTask.BackgroundTaskResult.Success;
+  const BACKGROUND_TASK = 'lumidose-background-reschedule';
 
-    // Reschedule notifications
-    const { data: medications } = await supabase
-      .from('medications')
-      .select('*, schedules:medication_schedules(*)')
-      .eq('user_id', session.user.id)
-      .eq('is_active', true);
+  TaskManager.defineTask(BACKGROUND_TASK, async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return BackgroundTask.BackgroundTaskResult.Success;
 
-    if (medications) {
-      await rescheduleAllNotifications(medications);
+      const { data: medications } = await supabase
+        .from('medications')
+        .select('*, schedules:medication_schedules(*)')
+        .eq('user_id', session.user.id)
+        .eq('is_active', true);
+
+      if (medications) await rescheduleAllNotifications(medications);
+
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const startYesterday = new Date(yesterday);
+      startYesterday.setHours(0, 0, 0, 0);
+      const endYesterday = new Date(yesterday);
+      endYesterday.setHours(23, 59, 59, 999);
+
+      await supabase
+        .from('medication_logs')
+        .update({ status: 'missed' })
+        .eq('user_id', session.user.id)
+        .eq('status', 'pending')
+        .gte('scheduled_at', startYesterday.toISOString())
+        .lte('scheduled_at', endYesterday.toISOString());
+
+      return BackgroundTask.BackgroundTaskResult.Success;
+    } catch {
+      return BackgroundTask.BackgroundTaskResult.Failed;
     }
-
-    // Mark yesterday's pending logs as missed
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const startYesterday = new Date(yesterday);
-    startYesterday.setHours(0, 0, 0, 0);
-    const endYesterday = new Date(yesterday);
-    endYesterday.setHours(23, 59, 59, 999);
-
-    await supabase
-      .from('medication_logs')
-      .update({ status: 'missed' })
-      .eq('user_id', session.user.id)
-      .eq('status', 'pending')
-      .gte('scheduled_at', startYesterday.toISOString())
-      .lte('scheduled_at', endYesterday.toISOString());
-
-    return BackgroundTask.BackgroundTaskResult.Success;
-  } catch {
-    return BackgroundTask.BackgroundTaskResult.Failed;
-  }
-});
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Root layout component
@@ -74,7 +67,7 @@ TaskManager.defineTask(BACKGROUND_TASK, async () => {
 
 export default function RootLayout() {
   const { initialized, session, initialize } = useAuthStore();
-  const { fetchMedications, medications } = useMedicationStore();
+  const { fetchMedications } = useMedicationStore();
   const { generateTodayLogs } = useLogStore();
   const router = useRouter();
   const segments = useSegments();
@@ -88,7 +81,8 @@ export default function RootLayout() {
   useEffect(() => {
     if (!initialized) return;
     const inAuth = segments[0] === '(auth)';
-    if (!session && !inAuth) {
+    const inCallback = segments[0] === 'auth'; // web OAuth callback
+    if (!session && !inAuth && !inCallback) {
       router.replace('/(auth)/login');
     } else if (session && inAuth) {
       router.replace('/(tabs)');
@@ -103,27 +97,40 @@ export default function RootLayout() {
     }
   }, [session?.user?.id]);
 
-  // 4. Notification setup (categories, response listener, background task)
+  // 4. Native-only: notifications + background task
   useEffect(() => {
+    if (Platform.OS === 'web') return;
+
+    const {
+      registerNotificationCategories,
+      rescheduleAllNotifications,
+      scheduleSnoozeNotification,
+      cancelSnoozeNotificationsForDose,
+      sendImmediateNotification,
+      ACTION_TOOK_IT,
+      ACTION_SNOOZE,
+    } = require('@/lib/notifications');
+
+    const Notifications = require('expo-notifications');
+    const BackgroundTask = require('expo-background-task');
+
+    const BACKGROUND_TASK = 'lumidose-background-reschedule';
+
     registerNotificationCategories();
 
-    // Register background task (silently fails on simulators)
-    // minimumInterval is in minutes for expo-background-task
     BackgroundTask.registerTaskAsync(BACKGROUND_TASK, {
-      minimumInterval: 60 * 24, // 24 hours in minutes
+      minimumInterval: 60 * 24,
     }).catch(() => undefined);
 
-    // Handle notification interaction responses
     const responseSub = Notifications.addNotificationResponseReceivedListener(
-      async (response) => {
+      async (response: any) => {
         const { actionIdentifier, notification } = response;
-        const data = notification.request.content.data as NotificationData;
+        const data = notification.request.content.data;
         if (!data?.medicationId) return;
 
         const { medicationId, scheduledAt, medicationName, dosage, snoozeIntervalMinutes } = data;
         const snoozeCount = data.snoozeCount ?? 0;
 
-        // Find the log row for this dose
         const { data: log } = await supabase
           .from('medication_logs')
           .select('*')
@@ -141,7 +148,6 @@ export default function RootLayout() {
 
             await cancelSnoozeNotificationsForDose(medicationId, scheduledAt);
 
-            // Decrement refill count
             const { data: med } = await supabase
               .from('medications')
               .select('refill_count, low_refill_threshold, name')
@@ -155,10 +161,7 @@ export default function RootLayout() {
                 .update({ refill_count: newCount })
                 .eq('id', medicationId);
 
-              if (
-                med.low_refill_threshold !== null &&
-                newCount <= (med.low_refill_threshold as number)
-              ) {
+              if (med.low_refill_threshold !== null && newCount <= (med.low_refill_threshold as number)) {
                 await sendImmediateNotification(
                   `Low supply: ${med.name as string}`,
                   `Only ${newCount} pill(s) remaining. Time to refill!`,
@@ -174,20 +177,14 @@ export default function RootLayout() {
               .update({ status: 'snoozed', snooze_count: snoozeCount + 1 })
               .eq('id', log.id);
           }
-
           await scheduleSnoozeNotification(
-            medicationId,
-            medicationName,
-            dosage ?? '',
-            scheduledAt,
-            snoozeIntervalMinutes,
-            snoozeCount + 1
+            medicationId, medicationName, dosage ?? '',
+            scheduledAt, snoozeIntervalMinutes, snoozeCount + 1
           );
         }
       }
     );
 
-    // Reschedule on app foreground
     const appStateSub = AppState.addEventListener(
       'change',
       async (nextState: AppStateStatus) => {
@@ -197,7 +194,6 @@ export default function RootLayout() {
             .select('*, schedules:medication_schedules(*)')
             .eq('user_id', session.user.id)
             .eq('is_active', true);
-
           if (meds) await rescheduleAllNotifications(meds);
         }
       }
@@ -209,7 +205,6 @@ export default function RootLayout() {
     };
   }, [session?.user?.id]);
 
-  // Don't render until auth is resolved
   if (!initialized) return null;
 
   return (
@@ -218,6 +213,7 @@ export default function RootLayout() {
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="auth/callback" />
           <Stack.Screen
             name="medications/add"
             options={{
