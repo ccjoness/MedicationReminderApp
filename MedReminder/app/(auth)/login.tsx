@@ -19,6 +19,17 @@ import { supabase } from '@/lib/supabase';
 
 WebBrowser.maybeCompleteAuthSession();
 
+// Native Google Sign-In SDK (Android & iOS only)
+const GoogleSignin =
+  Platform.OS !== 'web'
+    ? require('@react-native-google-signin/google-signin').GoogleSignin
+    : null;
+
+const statusCodes =
+  Platform.OS !== 'web'
+    ? require('@react-native-google-signin/google-signin').statusCodes
+    : null;
+
 const schema = z.object({
   email: z.string().email('Enter a valid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
@@ -46,46 +57,76 @@ export default function LoginScreen() {
     }
   };
 
-  const handleOAuthSignIn = async (provider: 'google' | 'apple') => {
+  const handleGoogleSignIn = async () => {
     try {
+      // --- Web: browser-based OAuth via Supabase ---
       if (Platform.OS === 'web') {
-        // On web: redirect the entire browser window to Google, then back to /auth/callback
         const redirectTo = window.location.origin + '/auth/callback';
         const { error } = await supabase.auth.signInWithOAuth({
-          provider,
+          provider: 'google',
           options: { redirectTo },
         });
         if (error) Alert.alert('Sign In Error', error.message);
-        // Browser navigates away — no further code runs
         return;
       }
 
-      // Native: open browser session and handle redirect back to the app
-      const redirectUrl = Linking.createURL('auth/callback');
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: { redirectTo: redirectUrl, skipBrowserRedirect: true },
+      // --- Native: Google Sign-In SDK ---
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      const signInResult = await GoogleSignin.signIn();
+
+      const idToken = signInResult.data?.idToken;
+      if (!idToken) throw new Error('No ID token returned from Google');
+
+      // Exchange the Google ID token for a Supabase session
+      const { error } = await supabase.auth.signInWithIdToken({
+        provider: 'google',
+        token: idToken,
       });
 
-      if (error || !data.url) {
-        Alert.alert('Sign In Error', error?.message ?? 'Could not open sign in');
+      if (error) throw error;
+
+      await refreshSession();
+      router.replace('/(tabs)');
+    } catch (e: unknown) {
+      if (statusCodes && (e as any)?.code === statusCodes.SIGN_IN_CANCELLED) return;
+      if (statusCodes && (e as any)?.code === statusCodes.IN_PROGRESS) return;
+      const message = e instanceof Error ? e.message : 'Google sign in failed';
+      Alert.alert('Sign In Error', message);
+    }
+  };
+
+  const handleAppleSignIn = async () => {
+    try {
+      if (Platform.OS === 'web') {
+        const redirectTo = window.location.origin + '/auth/callback';
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: 'apple',
+          options: { redirectTo },
+        });
+        if (error) Alert.alert('Sign In Error', error.message);
         return;
       }
 
+      // Native Apple Sign-In via browser fallback (Apple SDK requires paid Apple dev account)
+      const redirectUrl = Linking.createURL('auth/callback');
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'apple',
+        options: { redirectTo: redirectUrl, skipBrowserRedirect: true },
+      });
+      if (error || !data.url) {
+        Alert.alert('Sign In Error', error?.message ?? 'Could not open Apple sign in');
+        return;
+      }
       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
       if (result.type !== 'success') return;
 
       const { error: sessionError } = await supabase.auth.exchangeCodeForSession(result.url);
-      if (sessionError) {
-        Alert.alert('Sign In Error', sessionError.message);
-        return;
-      }
+      if (sessionError) throw sessionError;
 
-      // Sync the session into the Zustand store before navigating
       await refreshSession();
       router.replace('/(tabs)');
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Sign in failed';
+      const message = e instanceof Error ? e.message : 'Apple sign in failed';
       Alert.alert('Sign In Error', message);
     }
   };
@@ -172,7 +213,7 @@ export default function LoginScreen() {
 
         <Button
           mode="outlined"
-          onPress={() => handleOAuthSignIn('google')}
+          onPress={handleGoogleSignIn}
           icon="google"
           style={styles.socialButton}
           contentStyle={styles.buttonContent}
@@ -183,7 +224,7 @@ export default function LoginScreen() {
         {Platform.OS === 'ios' && (
           <Button
             mode="outlined"
-            onPress={() => handleOAuthSignIn('apple')}
+            onPress={handleAppleSignIn}
             icon="apple"
             style={styles.socialButton}
             contentStyle={styles.buttonContent}
