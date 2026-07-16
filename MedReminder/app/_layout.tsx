@@ -14,7 +14,8 @@ if (Platform.OS !== 'web') {
   const { GoogleSignin } = require('@react-native-google-signin/google-signin');
   GoogleSignin.configure({
     // The Web client ID is required on Android to get an ID token for Supabase
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+//     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
     // iOS client ID — required on iOS
     iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
     scopes: ['profile', 'email'],
