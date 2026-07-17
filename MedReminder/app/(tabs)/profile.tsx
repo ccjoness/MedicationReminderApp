@@ -13,7 +13,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { supabase } from '@/lib/supabase';
 
 export default function ProfileScreen() {
-  const { profile, user, signOut, updateProfile, loading } = useAuthStore();
+  const { profile, user, signOut, updateProfile } = useAuthStore();
   const [displayName, setDisplayName] = useState(profile?.display_name ?? '');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);

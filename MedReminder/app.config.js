@@ -1,8 +1,3 @@
-// app.config.js — dynamic Expo config.
-// Expo prefers this file over app.json when both exist.
-// Using a JS config allows environment variables to be read at build time,
-// which is required for values like the Google iOS URL scheme.
-
 /** @type {import('@expo/config').ExpoConfig} */
 module.exports = {
   name: 'Lumidose',
@@ -13,16 +8,6 @@ module.exports = {
   userInterfaceStyle: 'light',
   newArchEnabled: true,
   assetBundlePatterns: ['**/*'],
-  ios: {
-    supportsTablet: false,
-    bundleIdentifier: 'com.darkmattersoftware.lumidose',
-    infoPlist: {
-      NSCameraUsageDescription:
-        'Lumidose uses the camera so you can take a photo of your medication.',
-      NSPhotoLibraryUsageDescription:
-        'Lumidose accesses your photo library so you can attach a photo to your medication.',
-    },
-  },
   android: {
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
@@ -37,10 +22,6 @@ module.exports = {
       'android.permission.RECORD_AUDIO',
       'android.permission.WAKE_LOCK',
     ],
-  },
-  web: {
-    favicon: './assets/favicon.png',
-    bundler: 'metro',
   },
   plugins: [
     'expo-router',
@@ -70,16 +51,8 @@ module.exports = {
     ],
     'expo-background-task',
     'expo-task-manager',
-    [
-      // Google native Sign-In plugin.
-      // iosUrlScheme is the reversed iOS OAuth client ID from Google Cloud Console.
-      // Format: com.googleusercontent.apps.YOUR_IOS_CLIENT_ID_PREFIX
-      // Set GOOGLE_IOS_URL_SCHEME in your .env and EAS secrets.
-      '@react-native-google-signin/google-signin',
-      {
-        iosUrlScheme: process.env.GOOGLE_IOS_URL_SCHEME ?? 'com.googleusercontent.apps.PLACEHOLDER',
-      },
-    ],
+    // Native Google Sign-In — no iOS URL scheme needed for Android-only
+    '@react-native-google-signin/google-signin',
   ],
   scheme: 'lumidose',
   experiments: {

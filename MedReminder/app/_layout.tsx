@@ -1,81 +1,79 @@
 import { useEffect } from 'react';
-import { AppState, AppStateStatus, Platform } from 'react-native';
+import { AppState, AppStateStatus } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { PaperProvider, MD3LightTheme } from 'react-native-paper';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import * as Notifications from 'expo-notifications';
+import * as TaskManager from 'expo-task-manager';
+import * as BackgroundTask from 'expo-background-task';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 import { useAuthStore } from '@/stores/authStore';
 import { useMedicationStore } from '@/stores/medicationStore';
 import { useLogStore } from '@/stores/logStore';
+import {
+  registerNotificationCategories,
+  rescheduleAllNotifications,
+  scheduleSnoozeNotification,
+  cancelSnoozeNotificationsForDose,
+  sendImmediateNotification,
+  ACTION_TOOK_IT,
+  ACTION_SNOOZE,
+} from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
-
-// Configure Google Sign-In once at app startup (native only)
-if (Platform.OS !== 'web') {
-  const { GoogleSignin } = require('@react-native-google-signin/google-signin');
-  GoogleSignin.configure({
-    // The Web client ID is required on Android to get an ID token for Supabase
-//     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-    // iOS client ID — required on iOS
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-    scopes: ['profile', 'email'],
-  });
-}
+import type { NotificationData } from '@/types';
 
 // ---------------------------------------------------------------------------
-// Native-only: background task + notifications
-// These modules use native APIs unavailable on web.
+// Configure Google Sign-In (called once at module load)
 // ---------------------------------------------------------------------------
 
-// TaskManager.defineTask must be called at the module top level on native.
-// We wrap in a Platform check so the module isn't even imported on web.
-if (Platform.OS !== 'web') {
-  // Dynamic requires to avoid importing native modules in the web bundle.
-  const TaskManager = require('expo-task-manager');
-  const BackgroundTask = require('expo-background-task');
-  const {
-    rescheduleAllNotifications,
-  } = require('@/lib/notifications');
-
-  const BACKGROUND_TASK = 'lumidose-background-reschedule';
-
-  TaskManager.defineTask(BACKGROUND_TASK, async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return BackgroundTask.BackgroundTaskResult.Success;
-
-      const { data: medications } = await supabase
-        .from('medications')
-        .select('*, schedules:medication_schedules(*)')
-        .eq('user_id', session.user.id)
-        .eq('is_active', true);
-
-      if (medications) await rescheduleAllNotifications(medications);
-
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const startYesterday = new Date(yesterday);
-      startYesterday.setHours(0, 0, 0, 0);
-      const endYesterday = new Date(yesterday);
-      endYesterday.setHours(23, 59, 59, 999);
-
-      await supabase
-        .from('medication_logs')
-        .update({ status: 'missed' })
-        .eq('user_id', session.user.id)
-        .eq('status', 'pending')
-        .gte('scheduled_at', startYesterday.toISOString())
-        .lte('scheduled_at', endYesterday.toISOString());
-
-      return BackgroundTask.BackgroundTaskResult.Success;
-    } catch {
-      return BackgroundTask.BackgroundTaskResult.Failed;
-    }
-  });
-}
+GoogleSignin.configure({
+  webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+  scopes: ['profile', 'email'],
+});
 
 // ---------------------------------------------------------------------------
-// Root layout component
+// Background task — reschedule notifications & mark missed doses
+// ---------------------------------------------------------------------------
+
+const BACKGROUND_TASK = 'lumidose-background-reschedule';
+
+TaskManager.defineTask(BACKGROUND_TASK, async () => {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return BackgroundTask.BackgroundTaskResult.Success;
+
+    const { data: medications } = await supabase
+      .from('medications')
+      .select('*, schedules:medication_schedules(*)')
+      .eq('user_id', session.user.id)
+      .eq('is_active', true);
+
+    if (medications) await rescheduleAllNotifications(medications);
+
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const startYesterday = new Date(yesterday);
+    startYesterday.setHours(0, 0, 0, 0);
+    const endYesterday = new Date(yesterday);
+    endYesterday.setHours(23, 59, 59, 999);
+
+    await supabase
+      .from('medication_logs')
+      .update({ status: 'missed' })
+      .eq('user_id', session.user.id)
+      .eq('status', 'pending')
+      .gte('scheduled_at', startYesterday.toISOString())
+      .lte('scheduled_at', endYesterday.toISOString());
+
+    return BackgroundTask.BackgroundTaskResult.Success;
+  } catch {
+    return BackgroundTask.BackgroundTaskResult.Failed;
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Root layout
 // ---------------------------------------------------------------------------
 
 export default function RootLayout() {
@@ -90,12 +88,11 @@ export default function RootLayout() {
     initialize();
   }, []);
 
-  // 2. Route protection — redirect based on session
+  // 2. Route protection
   useEffect(() => {
     if (!initialized) return;
     const inAuth = segments[0] === '(auth)';
-    const inCallback = segments[0] === 'auth'; // web OAuth callback
-    if (!session && !inAuth && !inCallback) {
+    if (!session && !inAuth) {
       router.replace('/(auth)/login');
     } else if (session && inAuth) {
       router.replace('/(tabs)');
@@ -110,35 +107,18 @@ export default function RootLayout() {
     }
   }, [session?.user?.id]);
 
-  // 4. Native-only: notifications + background task
+  // 4. Notifications + background task
   useEffect(() => {
-    if (Platform.OS === 'web') return;
-
-    const {
-      registerNotificationCategories,
-      rescheduleAllNotifications,
-      scheduleSnoozeNotification,
-      cancelSnoozeNotificationsForDose,
-      sendImmediateNotification,
-      ACTION_TOOK_IT,
-      ACTION_SNOOZE,
-    } = require('@/lib/notifications');
-
-    const Notifications = require('expo-notifications');
-    const BackgroundTask = require('expo-background-task');
-
-    const BACKGROUND_TASK = 'lumidose-background-reschedule';
-
     registerNotificationCategories();
 
     BackgroundTask.registerTaskAsync(BACKGROUND_TASK, {
-      minimumInterval: 60 * 24,
+      minimumInterval: 60 * 24, // 24 hours in minutes
     }).catch(() => undefined);
 
     const responseSub = Notifications.addNotificationResponseReceivedListener(
-      async (response: any) => {
+      async (response) => {
         const { actionIdentifier, notification } = response;
-        const data = notification.request.content.data;
+        const data = notification.request.content.data as NotificationData;
         if (!data?.medicationId) return;
 
         const { medicationId, scheduledAt, medicationName, dosage, snoozeIntervalMinutes } = data;
@@ -226,7 +206,6 @@ export default function RootLayout() {
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="auth/callback" />
           <Stack.Screen
             name="medications/add"
             options={{
