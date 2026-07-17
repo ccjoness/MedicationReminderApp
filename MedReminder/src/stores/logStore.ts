@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
+import { useAuthStore } from './authStore';
 import { startOfDay, endOfDay } from '../utils/date';
 import {
   sendImmediateNotification,
@@ -24,6 +25,9 @@ export const useLogStore = create<LogState>((set, get) => ({
   fetchTodayLogs: async () => {
     set({ loading: true });
     try {
+      const user = useAuthStore.getState().user;
+      if (!user) throw new Error('Not authenticated');
+
       const now = new Date();
       const { data, error } = await supabase
         .from('medication_logs')
@@ -33,6 +37,7 @@ export const useLogStore = create<LogState>((set, get) => ({
           medication:medications(*)
         `
         )
+        .eq('user_id', user.id)
         .gte('scheduled_at', startOfDay(now).toISOString())
         .lte('scheduled_at', endOfDay(now).toISOString())
         .order('scheduled_at', { ascending: true });
@@ -109,23 +114,21 @@ export const useLogStore = create<LogState>((set, get) => ({
 
     if (error) throw error;
 
-    // Decrement refill count if tracked
+    // Atomic decrement via RPC — prevents TOCTOU race condition from
+    // concurrent "Mark as taken" actions (e.g., notification button + in-app button)
     const { data: med } = await supabase
       .from('medications')
       .select('refill_count, low_refill_threshold, name')
       .eq('id', medicationId)
       .single();
 
-    if (med && med.refill_count !== null && med.refill_count !== undefined) {
+    await supabase.rpc('decrement_refill_count', { med_id: medicationId });
+
+    // Check for low supply after decrement and warn user
+    if (med?.refill_count !== null && med?.refill_count !== undefined &&
+        med?.low_refill_threshold !== null) {
       const newCount = Math.max(0, (med.refill_count as number) - 1);
-
-      await supabase
-        .from('medications')
-        .update({ refill_count: newCount })
-        .eq('id', medicationId);
-
-      // Warn if low
-      if (med.low_refill_threshold !== null && newCount <= (med.low_refill_threshold as number)) {
+      if (newCount <= (med.low_refill_threshold as number)) {
         await sendImmediateNotification(
           `Low supply: ${med.name as string}`,
           `Only ${newCount} pill(s) remaining. Time to refill!`,

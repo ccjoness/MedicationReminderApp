@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Session, User } from '@supabase/supabase-js';
+import type { Session, User, Subscription } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import type { Profile } from '../types';
 
@@ -8,6 +8,7 @@ interface AuthState {
   user: User | null;
   profile: Profile | null;
   initialized: boolean;
+  _subscription: Subscription | null;
   // Actions
   initialize: () => Promise<void>;
   refreshSession: () => Promise<void>;
@@ -21,42 +22,33 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   profile: null,
   initialized: false,
+  _subscription: null,
 
   initialize: async () => {
+    // Unsubscribe any previous listener (guards against double-mount in React StrictMode)
+    get()._subscription?.unsubscribe();
+
     const { data: { session } } = await supabase.auth.getSession();
     set({ session, user: session?.user ?? null, initialized: true });
-
     if (session?.user) get().fetchProfile(session.user.id);
 
-    supabase.auth.onAuthStateChange(async (event, newSession) => {
-      set({ session: newSession, user: newSession?.user ?? null });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, newSession) => {
+        set({ session: newSession, user: newSession?.user ?? null });
 
-      if (newSession?.user) {
-        if (event === 'SIGNED_IN') {
-          // Ensure a profile row exists (first-time Google sign-in)
-          const { data: existing } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('id', newSession.user.id)
-            .maybeSingle();
-
-          if (!existing) {
-            await supabase.from('profiles').insert({
-              id: newSession.user.id,
-              email: newSession.user.email ?? '',
-              display_name:
-                newSession.user.user_metadata?.full_name ??
-                newSession.user.email?.split('@')[0] ??
-                'User',
-              avatar_url: newSession.user.user_metadata?.avatar_url ?? null,
-            });
+        if (newSession?.user) {
+          // The DB trigger (on_auth_user_created) already creates the profile row.
+          // We only need to fetch it here — no redundant SELECT+INSERT needed.
+          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+            get().fetchProfile(newSession.user.id);
           }
-          get().fetchProfile(newSession.user.id);
+        } else {
+          set({ profile: null });
         }
-      } else {
-        set({ profile: null });
       }
-    });
+    );
+
+    set({ _subscription: subscription });
   },
 
   refreshSession: async () => {
@@ -75,8 +67,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signOut: async () => {
+    get()._subscription?.unsubscribe();
     await supabase.auth.signOut();
-    set({ session: null, user: null, profile: null });
+    set({ session: null, user: null, profile: null, _subscription: null });
   },
 
   updateProfile: async (updates) => {

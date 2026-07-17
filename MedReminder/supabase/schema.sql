@@ -199,6 +199,15 @@ create policy "Users can view own photos"
     (storage.foldername(name))[1] = auth.uid()::text
   );
 
+-- Allow authenticated users to update (replace) their own photos
+create policy "Users can update own photos"
+  on storage.objects for update
+  to authenticated
+  using (
+    bucket_id = 'medication-photos' and
+    (storage.foldername(name))[1] = auth.uid()::text
+  );
+
 -- Allow authenticated users to delete their own photos
 create policy "Users can delete own photos"
   on storage.objects for delete
@@ -207,3 +216,38 @@ create policy "Users can delete own photos"
     bucket_id = 'medication-photos' and
     (storage.foldername(name))[1] = auth.uid()::text
   );
+
+-- ----------------------------------------------------------------
+-- Atomic refill count decrement (prevents TOCTOU race condition)
+-- ----------------------------------------------------------------
+create or replace function public.decrement_refill_count(med_id uuid)
+returns void language plpgsql security definer as $$
+declare
+  v_new_count integer;
+  v_threshold integer;
+  v_name text;
+begin
+  update public.medications
+  set refill_count = greatest(0, refill_count - 1)
+  where id = med_id
+    and user_id = auth.uid()
+    and refill_count is not null
+  returning refill_count, low_refill_threshold, name
+    into v_new_count, v_threshold, v_name;
+
+  -- Fire a low-refill notification if threshold crossed
+  -- (actual push notification is sent client-side after this RPC returns)
+end;
+$$;
+
+-- ----------------------------------------------------------------
+-- Account deletion
+-- ----------------------------------------------------------------
+-- Deleting the auth.users row cascades to profiles, medications,
+-- medication_schedules, and medication_logs via foreign keys.
+create or replace function public.delete_user()
+returns void language plpgsql security definer as $$
+begin
+  delete from auth.users where id = auth.uid();
+end;
+$$;

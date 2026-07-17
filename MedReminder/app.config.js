@@ -19,7 +19,6 @@ module.exports = {
       'android.permission.VIBRATE',
       'android.permission.USE_EXACT_ALARM',
       'android.permission.SCHEDULE_EXACT_ALARM',
-      'android.permission.RECORD_AUDIO',
       'android.permission.WAKE_LOCK',
     ],
   },

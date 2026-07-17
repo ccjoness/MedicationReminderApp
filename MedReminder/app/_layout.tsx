@@ -115,65 +115,61 @@ export default function RootLayout() {
       minimumInterval: 60 * 24, // 24 hours in minutes
     }).catch(() => undefined);
 
+    const MAX_SNOOZE = 10;
+
     const responseSub = Notifications.addNotificationResponseReceivedListener(
       async (response) => {
-        const { actionIdentifier, notification } = response;
-        const data = notification.request.content.data as NotificationData;
-        if (!data?.medicationId) return;
+        try {
+          const { actionIdentifier, notification } = response;
+          const data = notification.request.content.data as NotificationData;
+          if (!data?.medicationId) return;
 
-        const { medicationId, scheduledAt, medicationName, dosage, snoozeIntervalMinutes } = data;
-        const snoozeCount = data.snoozeCount ?? 0;
+          const userId = useAuthStore.getState().user?.id;
+          if (!userId) return;
 
-        const { data: log } = await supabase
-          .from('medication_logs')
-          .select('*')
-          .eq('medication_id', medicationId)
-          .eq('scheduled_at', scheduledAt)
-          .maybeSingle();
+          const { medicationId, scheduledAt, medicationName, dosage, snoozeIntervalMinutes } = data;
+          const snoozeCount = data.snoozeCount ?? 0;
 
-        if (actionIdentifier === ACTION_TOOK_IT) {
-          if (log) {
-            const now = new Date().toISOString();
-            await supabase
-              .from('medication_logs')
-              .update({ status: 'taken', taken_at: now })
-              .eq('id', log.id);
+          // Include user_id filter for defence-in-depth (don't rely on RLS alone)
+          const { data: log } = await supabase
+            .from('medication_logs')
+            .select('*')
+            .eq('medication_id', medicationId)
+            .eq('scheduled_at', scheduledAt)
+            .eq('user_id', userId)
+            .maybeSingle();
 
-            await cancelSnoozeNotificationsForDose(medicationId, scheduledAt);
-
-            const { data: med } = await supabase
-              .from('medications')
-              .select('refill_count, low_refill_threshold, name')
-              .eq('id', medicationId)
-              .single();
-
-            if (med?.refill_count !== null && med?.refill_count !== undefined) {
-              const newCount = Math.max(0, (med.refill_count as number) - 1);
+          if (actionIdentifier === ACTION_TOOK_IT) {
+            if (log) {
+              const now = new Date().toISOString();
               await supabase
-                .from('medications')
-                .update({ refill_count: newCount })
-                .eq('id', medicationId);
+                .from('medication_logs')
+                .update({ status: 'taken', taken_at: now })
+                .eq('id', log.id);
 
-              if (med.low_refill_threshold !== null && newCount <= (med.low_refill_threshold as number)) {
-                await sendImmediateNotification(
-                  `Low supply: ${med.name as string}`,
-                  `Only ${newCount} pill(s) remaining. Time to refill!`,
-                  { type: 'refill_warning', medicationId }
-                );
-              }
+              await cancelSnoozeNotificationsForDose(medicationId, scheduledAt);
+
+              // Atomic decrement via RPC to prevent TOCTOU race condition
+              await supabase.rpc('decrement_refill_count', { med_id: medicationId });
             }
+          } else if (actionIdentifier === ACTION_SNOOZE) {
+            if (snoozeCount >= MAX_SNOOZE) return; // cap snooze attempts
+
+            if (log) {
+              await supabase
+                .from('medication_logs')
+                .update({ status: 'snoozed', snooze_count: snoozeCount + 1 })
+                .eq('id', log.id);
+            }
+            await scheduleSnoozeNotification(
+              medicationId, medicationName, dosage ?? '',
+              scheduledAt, snoozeIntervalMinutes, snoozeCount + 1
+            );
           }
-        } else if (actionIdentifier === ACTION_SNOOZE) {
-          if (log) {
-            await supabase
-              .from('medication_logs')
-              .update({ status: 'snoozed', snooze_count: snoozeCount + 1 })
-              .eq('id', log.id);
-          }
-          await scheduleSnoozeNotification(
-            medicationId, medicationName, dosage ?? '',
-            scheduledAt, snoozeIntervalMinutes, snoozeCount + 1
-          );
+        } catch (err) {
+          // Swallow silently — a crashed notification handler should never
+          // take down the app. Errors are visible in the crash reporter.
+          console.error('[notification handler]', err);
         }
       }
     );
