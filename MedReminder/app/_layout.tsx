@@ -13,6 +13,7 @@ import { useMedicationStore } from '@/stores/medicationStore';
 import { useLogStore } from '@/stores/logStore';
 import {
   registerNotificationCategories,
+  requestNotificationPermissions,
   rescheduleAllNotifications,
   scheduleSnoozeNotification,
   cancelSnoozeNotificationsForDose,
@@ -109,7 +110,12 @@ export default function RootLayout() {
 
   // 4. Notifications + background task
   useEffect(() => {
-    registerNotificationCategories();
+    // Request OS permission first; register categories only if granted.
+    requestNotificationPermissions().then((granted) => {
+      if (granted) {
+        registerNotificationCategories();
+      }
+    });
 
     BackgroundTask.registerTaskAsync(BACKGROUND_TASK, {
       minimumInterval: 60 * 24, // 24 hours in minutes
