@@ -1,15 +1,51 @@
-import { View, StyleSheet, Alert, ActivityIndicator } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect } from 'react';
+import { View, StyleSheet, Alert, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useMedicationStore } from '@/stores/medicationStore';
 import { MedicationForm, ScheduleDraft } from '@/components/MedicationForm';
 import type { Medication } from '@/types';
 
 export default function EditMedicationScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { getMedicationById, updateMedication } = useMedicationStore();
+  const { getMedicationById, updateMedication, deleteMedication } = useMedicationStore();
 
   const medication = getMedicationById(id);
+
+  const handleDelete = () => {
+    Alert.alert(
+      'Delete Medication',
+      `Delete "${medication?.name}" and cancel all its reminders? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteMedication(id);
+              router.back();
+            } catch {
+              Alert.alert('Error', 'Could not delete medication. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Add a delete (trash) icon to the navigation header
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity onPress={handleDelete} style={styles.headerButton}>
+          <MaterialCommunityIcons name="trash-can-outline" size={24} color="#C62828" />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, medication]);
 
   if (!medication) {
     return (
@@ -49,5 +85,9 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  headerButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
   },
 });
