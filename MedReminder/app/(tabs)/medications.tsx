@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState } from 'react';
+import { useEffect } from 'react';
 import {
   View,
   FlatList,
@@ -7,7 +7,7 @@ import {
   Alert,
   TouchableOpacity,
 } from 'react-native';
-import { Text, FAB, ActivityIndicator, Card, IconButton, Chip } from 'react-native-paper';
+import { Text, FAB, ActivityIndicator, Card, Chip } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -74,19 +74,12 @@ export default function MedicationsScreen() {
                   {item.name}
                 </Text>
                 {lowStock && (
-                  <Chip
-                    icon="alert"
-                    compact
-                    style={styles.lowStockChip}
-                    textStyle={styles.lowStockText}
-                  >
+                  <Chip icon="alert" compact style={styles.lowStockChip} textStyle={styles.lowStockText}>
                     Low supply
                   </Chip>
                 )}
               </View>
-              <Text variant="bodySmall" style={styles.dosage}>
-                {item.dosage}
-              </Text>
+              <Text variant="bodySmall" style={styles.dosage}>{item.dosage}</Text>
             </View>
 
             {item.schedules && item.schedules.length > 0 && (
@@ -95,10 +88,7 @@ export default function MedicationsScreen() {
                   const days =
                     s.days_of_week.length === 0
                       ? 'Every day'
-                      : s.days_of_week
-                          .sort((a, b) => a - b)
-                          .map((d) => DAY_LABELS[d])
-                          .join(', ');
+                      : s.days_of_week.sort((a, b) => a - b).map((d) => DAY_LABELS[d]).join(', ');
                   return (
                     <Text key={s.id} variant="bodySmall" style={styles.scheduleText}>
                       {timeStringToLabel(s.time_of_day)} — {days}

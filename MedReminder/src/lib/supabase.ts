@@ -1,6 +1,21 @@
 import 'react-native-url-polyfill/auto';
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ExpoCrypto from 'expo-crypto';
+
+// Polyfill crypto.getRandomValues using expo-crypto so Supabase
+// can use SHA256 for PKCE code challenges on Android.
+if (typeof global.crypto === 'undefined' || !global.crypto.getRandomValues) {
+  (global as typeof global & { crypto: Crypto }).crypto = {
+    getRandomValues: <T extends ArrayBufferView | null>(array: T): T => {
+      if (array && ArrayBuffer.isView(array)) {
+        const bytes = ExpoCrypto.getRandomBytes(array.byteLength);
+        new Uint8Array(array.buffer, array.byteOffset, array.byteLength).set(bytes);
+      }
+      return array;
+    },
+  } as Crypto;
+}
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL as string;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY as string;
@@ -18,5 +33,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
+    flowType: 'pkce',
   },
 });

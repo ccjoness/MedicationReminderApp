@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
+import { useAuthStore } from './authStore';
 import {
   scheduleNotificationsForMedication,
   cancelNotificationsForMedication,
@@ -31,6 +32,9 @@ export const useMedicationStore = create<MedicationState>((set, get) => ({
   fetchMedications: async () => {
     set({ loading: true });
     try {
+      const user = useAuthStore.getState().user;
+      if (!user) throw new Error('Not authenticated');
+
       const { data, error } = await supabase
         .from('medications')
         .select(
@@ -39,6 +43,7 @@ export const useMedicationStore = create<MedicationState>((set, get) => ({
           schedules:medication_schedules(*)
         `
         )
+        .eq('user_id', user.id)
         .eq('is_active', true)
         .order('created_at', { ascending: false });
 
@@ -50,9 +55,8 @@ export const useMedicationStore = create<MedicationState>((set, get) => ({
   },
 
   addMedication: async (medicationData, scheduleData) => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    // Read user from Zustand store — already populated when navigated past login
+    const user = useAuthStore.getState().user;
     if (!user) throw new Error('Not authenticated');
 
     // Insert medication row
@@ -130,7 +134,9 @@ export const useMedicationStore = create<MedicationState>((set, get) => ({
   },
 
   deleteMedication: async (id) => {
-    // Soft delete
+    // Retrieve photo path before soft-deleting so we can clean up storage
+    const existing = get().medications.find((m) => m.id === id);
+
     const { error } = await supabase
       .from('medications')
       .update({ is_active: false })
@@ -139,6 +145,15 @@ export const useMedicationStore = create<MedicationState>((set, get) => ({
     if (error) throw error;
 
     await cancelNotificationsForMedication(id);
+
+    // Delete the medication photo from storage to avoid orphaned files
+    if (existing?.photo_url) {
+      const urlParts = existing.photo_url.split('/medication-photos/');
+      if (urlParts.length > 1) {
+        const storagePath = urlParts[1].split('?')[0]; // strip query string from signed URL
+        await supabase.storage.from('medication-photos').remove([storagePath]);
+      }
+    }
 
     set((state) => ({
       medications: state.medications.filter((med) => med.id !== id),

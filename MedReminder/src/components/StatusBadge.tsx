@@ -14,7 +14,8 @@ interface Props {
 }
 
 export function StatusBadge({ status }: Props) {
-  const { label, bg, color } = STATUS_CONFIG[status];
+  const cfg = STATUS_CONFIG[status] ?? { label: status, bg: '#eee', color: '#555' };
+  const { label, bg, color } = cfg;
   return (
     <View style={[styles.badge, { backgroundColor: bg }]}>
       <Text style={[styles.text, { color }]}>{label}</Text>

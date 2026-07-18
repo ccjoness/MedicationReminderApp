@@ -2,7 +2,7 @@
  * Shared Add/Edit medication form.
  * Handles: all fields, image picker, schedule builder, day-of-week selector, time picker.
  */
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -27,6 +27,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
+import { useAuthStore } from '../stores/authStore';
 import { ScheduleItem } from './ScheduleItem';
 import { DAY_LABELS, dateToTimeString } from '../utils/date';
 import type { Medication, MedicationSchedule } from '../types';
@@ -102,6 +103,7 @@ export function MedicationForm({
 
   // Photo state
   const [photoUri, setPhotoUri] = useState<string | null>(initialValues?.photo_url ?? null);
+  const [photoMimeType, setPhotoMimeType] = useState<string>('image/jpeg');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   // Schedule state
@@ -143,12 +145,14 @@ export function MedicationForm({
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.7,
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
       });
     }
 
     if (result.canceled || !result.assets[0]) return;
     setPhotoUri(result.assets[0].uri);
+    // Store mimeType at pick time so uploadPhoto can use it (handles Android content:// URIs)
+    setPhotoMimeType(result.assets[0].mimeType ?? 'image/jpeg');
   };
 
   const handlePhotoPress = () => {
@@ -165,24 +169,28 @@ export function MedicationForm({
 
     setUploadingPhoto(true);
     try {
-      const ext = photoUri.split('.').pop() ?? 'jpg';
+      // Use mimeType stored at pick time — handles Android content:// URIs correctly
+      const ext = photoMimeType.split('/')[1] ?? 'jpg';
       const path = `${userId}/${Date.now()}.${ext}`;
+
       const response = await fetch(photoUri);
       const blob = await response.blob();
 
       const { error } = await supabase.storage
         .from('medication-photos')
-        .upload(path, blob, { contentType: `image/${ext}` });
+        .upload(path, blob, { upsert: true, contentType: photoMimeType });
 
       if (error) throw error;
 
-      const { data } = supabase.storage
+      // Use a signed URL — bucket is private so getPublicUrl would return a broken URL
+      const { data: signed, error: signErr } = await supabase.storage
         .from('medication-photos')
-        .getPublicUrl(path);
+        .createSignedUrl(path, 60 * 60 * 24 * 365); // 1-year TTL
 
-      return data.publicUrl;
+      if (signErr) throw signErr;
+      return signed.signedUrl;
     } catch (e) {
-      console.warn('Photo upload failed:', e);
+      Alert.alert('Photo Upload Failed', 'Could not upload the photo. The medication will be saved without an image.');
       return null;
     } finally {
       setUploadingPhoto(false);
@@ -198,11 +206,7 @@ export function MedicationForm({
     setDraftDays([]);
     setEditingScheduleIndex(null);
     setAddingSchedule(true);
-    if (Platform.OS === 'android') {
-      setShowTimePicker(true);
-    } else {
-      setShowTimePicker(true);
-    }
+    setShowTimePicker(true);
   };
 
   const openEditSchedule = (index: number) => {
@@ -259,9 +263,8 @@ export function MedicationForm({
 
     setSubmitting(true);
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      // Read user from Zustand store — already populated when navigated past login
+      const user = useAuthStore.getState().user;
       if (!user) throw new Error('Not authenticated');
 
       const photoUrl = await uploadPhoto(user.id);
@@ -481,15 +484,14 @@ export function MedicationForm({
             <DateTimePicker
               value={draftTime}
               mode="time"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              display="default"
               onChange={(_, date) => {
                 if (date) setDraftTime(date);
-                if (Platform.OS === 'android') setShowTimePicker(false);
+                setShowTimePicker(false);
               }}
             />
           )}
-
-          {Platform.OS === 'android' && !showTimePicker && (
+          {!showTimePicker && (
             <TouchableOpacity
               style={styles.timeButton}
               onPress={() => setShowTimePicker(true)}

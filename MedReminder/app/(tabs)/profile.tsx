@@ -13,7 +13,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { supabase } from '@/lib/supabase';
 
 export default function ProfileScreen() {
-  const { profile, user, signOut, updateProfile, loading } = useAuthStore();
+  const { profile, user, signOut, updateProfile } = useAuthStore();
   const [displayName, setDisplayName] = useState(profile?.display_name ?? '');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -40,7 +40,7 @@ export default function ProfileScreen() {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.7,
@@ -50,24 +50,29 @@ export default function ProfileScreen() {
 
     setUploading(true);
     try {
+      if (!user) return; // guard against null user (replaces unsafe user!.id)
       const asset = result.assets[0];
-      const ext = asset.uri.split('.').pop() ?? 'jpg';
-      const path = `${user!.id}/avatar.${ext}`;
+      // Use mimeType from ImagePicker — handles Android content:// URIs correctly
+      const mimeType = asset.mimeType ?? 'image/jpeg';
+      const ext = mimeType.split('/')[1] ?? 'jpg';
+      const path = `${user.id}/avatar.${ext}`;
 
       const response = await fetch(asset.uri);
       const blob = await response.blob();
 
       const { error: uploadError } = await supabase.storage
         .from('medication-photos')
-        .upload(path, blob, { upsert: true, contentType: `image/${ext}` });
+        .upload(path, blob, { upsert: true, contentType: mimeType });
 
       if (uploadError) throw uploadError;
 
-      const { data: urlData } = supabase.storage
+      // Bucket is private — use a signed URL, not getPublicUrl
+      const { data: signed, error: signErr } = await supabase.storage
         .from('medication-photos')
-        .getPublicUrl(path);
+        .createSignedUrl(path, 60 * 60 * 24 * 365);
 
-      await updateProfile({ avatar_url: urlData.publicUrl });
+      if (signErr) throw signErr;
+      await updateProfile({ avatar_url: signed.signedUrl });
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Failed to upload photo';
       Alert.alert('Upload Error', message);

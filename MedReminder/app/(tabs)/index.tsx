@@ -10,7 +10,7 @@ import type { MedicationLog } from '@/types';
 
 export default function TodayScreen() {
   const { session } = useAuthStore();
-  const { todayLogs, loading, fetchTodayLogs, generateTodayLogs, markAsTaken } = useLogStore();
+  const { todayLogs, loading, generateTodayLogs, markAsTaken } = useLogStore();
 
   const load = useCallback(async () => {
     if (session?.user) {
@@ -50,18 +50,21 @@ export default function TodayScreen() {
       <FlatList
         data={todayLogs}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <MedicationCard
-            medication={item.medication!}
-            log={item}
-            scheduledTime={item.scheduled_at}
-            onMarkTaken={
-              item.status === 'pending' || item.status === 'snoozed'
-                ? () => handleMarkTaken(item)
-                : undefined
-            }
-          />
-        )}
+        renderItem={({ item }) => {
+          if (!item.medication) return null; // guard against orphaned log rows
+          return (
+            <MedicationCard
+              medication={item.medication}
+              log={item}
+              scheduledTime={item.scheduled_at}
+              onMarkTaken={
+                item.status === 'pending' || item.status === 'snoozed'
+                  ? () => handleMarkTaken(item)
+                  : undefined
+              }
+            />
+          );
+        }}
         ListEmptyComponent={
           <EmptyState
             icon="pill"
