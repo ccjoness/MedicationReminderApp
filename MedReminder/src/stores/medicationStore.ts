@@ -82,12 +82,21 @@ export const useMedicationStore = create<MedicationState>((set, get) => ({
 
     const fullMedication: Medication = { ...(medication as Medication), schedules };
 
-    // Schedule notifications
+    // Update local state — medication is already in the DB regardless of notification outcome
+    set((state) => ({ medications: [fullMedication, ...state.medications] }));
+
+    // Schedule notifications — errors are surfaced as alerts but don't block the save
     if (schedules.length > 0) {
-      await scheduleNotificationsForMedication(fullMedication, schedules);
+      try {
+        await scheduleNotificationsForMedication(fullMedication, schedules);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Could not schedule reminders.';
+        // Import Alert lazily to avoid circular deps in the store
+        const { Alert } = require('react-native');
+        Alert.alert('Reminders Not Scheduled', msg);
+      }
     }
 
-    set((state) => ({ medications: [fullMedication, ...state.medications] }));
     return fullMedication;
   },
 
@@ -117,20 +126,38 @@ export const useMedicationStore = create<MedicationState>((set, get) => ({
     // Cancel old notifications and reschedule
     await cancelNotificationsForMedication(id);
 
+    // Build the updated medication object before touching state so we can
+    // schedule notifications outside the set() callback (set() must be pure).
+    const existingMed = get().medications.find((m) => m.id === id);
+    const updatedMed: Medication | undefined = existingMed
+      ? {
+          ...existingMed,
+          ...updates,
+          schedules: schedules !== undefined ? schedules : existingMed.schedules,
+        }
+      : undefined;
+
     set((state) => ({
       medications: state.medications.map((med) => {
         if (med.id !== id) return med;
-        const updated: Medication = {
+        return {
           ...med,
           ...updates,
           schedules: schedules !== undefined ? schedules : med.schedules,
         };
-        if (updated.is_active && updated.schedules?.length) {
-          scheduleNotificationsForMedication(updated, updated.schedules);
-        }
-        return updated;
       }),
     }));
+
+    // Schedule notifications after state update — errors show as alert but don't block save
+    if (updatedMed?.is_active && updatedMed.schedules?.length) {
+      try {
+        await scheduleNotificationsForMedication(updatedMed, updatedMed.schedules);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Could not schedule reminders.';
+        const { Alert } = require('react-native');
+        Alert.alert('Reminders Not Scheduled', msg);
+      }
+    }
   },
 
   deleteMedication: async (id) => {

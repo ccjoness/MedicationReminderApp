@@ -1,3 +1,4 @@
+import { Platform, Alert, Linking } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import type { Medication, MedicationSchedule } from '../types';
 
@@ -45,11 +46,46 @@ export async function registerNotificationCategories(): Promise<void> {
 // Permissions
 // ---------------------------------------------------------------------------
 
+/**
+ * Requests notification permission (POST_NOTIFICATIONS on Android 13+).
+ * Also checks the exact-alarm permission on Android 12+ — without it,
+ * all DateTrigger notifications schedule silently fail.
+ * Returns true only if both POST_NOTIFICATIONS and exact alarms are available.
+ */
 export async function requestNotificationPermissions(): Promise<boolean> {
+  // 1. Basic notification permission (Android 13+ / iOS)
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
-  if (existingStatus === 'granted') return true;
-  const { status } = await Notifications.requestPermissionsAsync();
-  return status === 'granted';
+  let status = existingStatus;
+
+  if (existingStatus !== 'granted') {
+    const result = await Notifications.requestPermissionsAsync();
+    status = result.status;
+  }
+
+  if (status !== 'granted') return false;
+
+  // 2. Android 12+: exact-alarm permission check.
+  //    USE_EXACT_ALARM (API 33+) is auto-granted for alarm apps, but
+  //    SCHEDULE_EXACT_ALARM (API 31-32) requires manual user approval.
+  if (Platform.OS === 'android') {
+    const perms = await Notifications.getPermissionsAsync();
+    if (perms.android?.canScheduleExactNotifications === false) {
+      Alert.alert(
+        'Enable Exact Reminders',
+        'Lumidose needs permission to deliver reminders at the exact scheduled time.\n\nPlease tap "Open Settings", then enable "Alarms & Reminders" for Lumidose.',
+        [
+          {
+            text: 'Open Settings',
+            onPress: () => Linking.openSettings(),
+          },
+          { text: 'Not Now', style: 'cancel' },
+        ]
+      );
+      return false; // Scheduling will fail until user grants this
+    }
+  }
+
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -79,38 +115,55 @@ export function getNextOccurrences(schedule: MedicationSchedule, daysAhead = 7):
 // Schedule / cancel helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Schedule local notifications for a medication over the next 7 days.
+ * Throws a user-friendly error if scheduling fails (e.g. permission denied).
+ * Returns the number of notifications successfully scheduled.
+ */
 export async function scheduleNotificationsForMedication(
   medication: Medication,
   schedules: MedicationSchedule[]
-): Promise<void> {
+): Promise<number> {
+  let count = 0;
   for (const schedule of schedules) {
     const occurrences = getNextOccurrences(schedule, 7);
     for (const scheduledAt of occurrences) {
-      await Notifications.scheduleNotificationAsync({
-        identifier: `med_${medication.id}_${schedule.id}_${scheduledAt.toISOString()}`,
-        content: {
-          title: `Time to take ${medication.name}`,
-          body: `${medication.dosage} — tap to respond`,
-          categoryIdentifier: NOTIFICATION_CATEGORY_ID,
-          data: {
-            medicationId: medication.id,
-            scheduleId: schedule.id,
-            scheduledAt: scheduledAt.toISOString(),
-            medicationName: medication.name,
-            dosage: medication.dosage,
-            snoozeIntervalMinutes: medication.snooze_interval_minutes,
-            snoozeCount: 0,
-            isSnooze: false,
+      try {
+        await Notifications.scheduleNotificationAsync({
+          identifier: `med_${medication.id}_${schedule.id}_${scheduledAt.toISOString()}`,
+          content: {
+            title: `Time to take ${medication.name}`,
+            body: `${medication.dosage} — tap to respond`,
+            categoryIdentifier: NOTIFICATION_CATEGORY_ID,
+            data: {
+              medicationId: medication.id,
+              scheduleId: schedule.id,
+              scheduledAt: scheduledAt.toISOString(),
+              medicationName: medication.name,
+              dosage: medication.dosage,
+              snoozeIntervalMinutes: medication.snooze_interval_minutes,
+              snoozeCount: 0,
+              isSnooze: false,
+            },
+            sound: true,
           },
-          sound: true,
-        },
-        trigger: {
-          date: scheduledAt,
-          type: Notifications.SchedulableTriggerInputTypes.DATE,
-        },
-      });
+          trigger: {
+            date: scheduledAt,
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
+          },
+        });
+        count++;
+      } catch (e) {
+        // Surface the real error so it's not silent
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error('[notifications] scheduleNotificationAsync failed:', msg);
+        throw new Error(
+          `Could not schedule reminder for ${medication.name} at ${scheduledAt.toLocaleTimeString()}.\n\nPlease ensure Lumidose has notification and alarm permissions in your device settings.`
+        );
+      }
     }
   }
+  return count;
 }
 
 export async function cancelNotificationsForMedication(medicationId: string): Promise<void> {
@@ -142,20 +195,24 @@ export async function scheduleSnoozeNotification(
   snoozeCount: number
 ): Promise<void> {
   const fireAt = new Date(Date.now() + snoozeIntervalMinutes * 60 * 1000);
-  await Notifications.scheduleNotificationAsync({
-    identifier: `snooze_${medicationId}_${scheduledAt}_${snoozeCount}`,
-    content: {
-      title: `Reminder: ${medicationName}`,
-      body: `${dosage} — did you take it?`,
-      categoryIdentifier: NOTIFICATION_CATEGORY_ID,
-      data: {
-        medicationId, scheduledAt, medicationName, dosage,
-        snoozeIntervalMinutes, snoozeCount, isSnooze: true,
+  try {
+    await Notifications.scheduleNotificationAsync({
+      identifier: `snooze_${medicationId}_${scheduledAt}_${snoozeCount}`,
+      content: {
+        title: `Reminder: ${medicationName}`,
+        body: `${dosage} — did you take it?`,
+        categoryIdentifier: NOTIFICATION_CATEGORY_ID,
+        data: {
+          medicationId, scheduledAt, medicationName, dosage,
+          snoozeIntervalMinutes, snoozeCount, isSnooze: true,
+        },
+        sound: true,
       },
-      sound: true,
-    },
-    trigger: { date: fireAt, type: Notifications.SchedulableTriggerInputTypes.DATE },
-  });
+      trigger: { date: fireAt, type: Notifications.SchedulableTriggerInputTypes.DATE },
+    });
+  } catch (e) {
+    console.error('[notifications] scheduleSnoozeNotification failed:', e);
+  }
 }
 
 export async function rescheduleAllNotifications(medications: Medication[]): Promise<void> {
@@ -168,7 +225,11 @@ export async function rescheduleAllNotifications(medications: Medication[]): Pro
 
   for (const medication of medications) {
     if (medication.is_active && medication.schedules?.length) {
-      await scheduleNotificationsForMedication(medication, medication.schedules);
+      try {
+        await scheduleNotificationsForMedication(medication, medication.schedules);
+      } catch (e) {
+        console.error(`[notifications] reschedule failed for ${medication.name}:`, e);
+      }
     }
   }
 }
@@ -178,8 +239,12 @@ export async function sendImmediateNotification(
   body: string,
   data?: Record<string, unknown>
 ): Promise<void> {
-  await Notifications.scheduleNotificationAsync({
-    content: { title, body, data, sound: true },
-    trigger: null,
-  });
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: { title, body, data, sound: true },
+      trigger: null,
+    });
+  } catch (e) {
+    console.error('[notifications] sendImmediateNotification failed:', e);
+  }
 }
