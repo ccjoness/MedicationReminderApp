@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Text, TextInput, Button, Divider, Card, ActivityIndicator } from 'react-native-paper';
 import * as ImagePicker from 'expo-image-picker';
+import { compressAvatarPhoto } from '@/utils/image';
 import { useAuthStore } from '@/stores/authStore';
 import { supabase } from '@/lib/supabase';
 
@@ -43,21 +44,22 @@ export default function ProfileScreen() {
       mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.7,
+      quality: 1, // Pick at full quality; we compress afterward
     });
 
     if (result.canceled || !result.assets[0]) return;
 
     setUploading(true);
     try {
-      if (!user) return; // guard against null user (replaces unsafe user!.id)
-      const asset = result.assets[0];
-      // Use mimeType from ImagePicker — handles Android content:// URIs correctly
-      const mimeType = asset.mimeType ?? 'image/jpeg';
+      if (!user) return;
+
+      // Compress to 512 px max, JPEG 60% — avatars end up ~20–60 KB
+      const compressed = await compressAvatarPhoto(result.assets[0].uri);
+      const mimeType = compressed.mimeType;
       const ext = mimeType.split('/')[1] ?? 'jpg';
       const path = `${user.id}/avatar.${ext}`;
 
-      const response = await fetch(asset.uri);
+      const response = await fetch(compressed.uri);
       const blob = await response.blob();
 
       const { error: uploadError } = await supabase.storage

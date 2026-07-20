@@ -22,6 +22,7 @@ import {
 } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
+import { compressMedicationPhoto } from '../utils/image';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -133,7 +134,7 @@ export function MedicationForm({
       result = await ImagePicker.launchCameraAsync({
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.7,
+        quality: 1, // Pick at full quality; we compress afterward with expo-image-manipulator
       });
     } else {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -144,15 +145,24 @@ export function MedicationForm({
       result = await ImagePicker.launchImageLibraryAsync({
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.7,
+        quality: 1, // Pick at full quality; we compress afterward with expo-image-manipulator
         mediaTypes: ['images'],
       });
     }
 
     if (result.canceled || !result.assets[0]) return;
-    setPhotoUri(result.assets[0].uri);
-    // Store mimeType at pick time so uploadPhoto can use it (handles Android content:// URIs)
-    setPhotoMimeType(result.assets[0].mimeType ?? 'image/jpeg');
+
+    // Compress before storing — resize to 1024 px max, re-encode as JPEG at 50% quality.
+    // This brings any camera image (typically 5–30 MB) down to ~60–150 KB.
+    try {
+      const compressed = await compressMedicationPhoto(result.assets[0].uri);
+      setPhotoUri(compressed.uri);
+      setPhotoMimeType(compressed.mimeType);
+    } catch {
+      // Fall back to original if compression fails
+      setPhotoUri(result.assets[0].uri);
+      setPhotoMimeType(result.assets[0].mimeType ?? 'image/jpeg');
+    }
   };
 
   const handlePhotoPress = () => {
