@@ -14,11 +14,13 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useMedicationStore } from '@/stores/medicationStore';
 import { EmptyState } from '@/components/EmptyState';
 import { timeStringToLabel, DAY_LABELS } from '@/utils/date';
+import { useIs24HourFormat } from '@/hooks/useTimeFormat';
 import type { Medication } from '@/types';
 
 export default function MedicationsScreen() {
   const router = useRouter();
   const { medications, loading, fetchMedications, deleteMedication } = useMedicationStore();
+  const is24Hour = useIs24HourFormat();
 
   useEffect(() => {
     fetchMedications();
@@ -91,7 +93,7 @@ export default function MedicationsScreen() {
                       : s.days_of_week.sort((a, b) => a - b).map((d) => DAY_LABELS[d]).join(', ');
                   return (
                     <Text key={s.id} variant="bodySmall" style={styles.scheduleText}>
-                      {timeStringToLabel(s.time_of_day)} — {days}
+                      {timeStringToLabel(s.time_of_day, is24Hour)} — {days}
                     </Text>
                   );
                 })}

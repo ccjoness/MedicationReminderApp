@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
 import { StatusBadge } from '@/components/StatusBadge';
 import { toDateKey, formatTime } from '@/utils/date';
+import { useIs24HourFormat } from '@/hooks/useTimeFormat';
 import type { MedicationLog } from '@/types';
 
 interface MarkedDate {
@@ -17,6 +18,7 @@ interface MarkedDate {
 
 export default function HistoryScreen() {
   const { session } = useAuthStore();
+  const is24Hour = useIs24HourFormat();
   const [selectedDate, setSelectedDate] = useState<string>(toDateKey(new Date()));
   const [logsForDay, setLogsForDay] = useState<MedicationLog[]>([]);
   const [markedDates, setMarkedDates] = useState<Record<string, MarkedDate>>({});
@@ -165,11 +167,11 @@ export default function HistoryScreen() {
                   {log.medication?.name ?? 'Unknown'}
                 </Text>
                 <Text variant="bodySmall" style={styles.logDosage}>
-                  {log.medication?.dosage ?? ''} • {formatTime(log.scheduled_at)}
+                  {log.medication?.dosage ?? ''} • {formatTime(log.scheduled_at, is24Hour)}
                 </Text>
                 {log.taken_at && (
                   <Text variant="bodySmall" style={styles.takenAt}>
-                    Taken at {formatTime(log.taken_at)}
+                    Taken at {formatTime(log.taken_at, is24Hour)}
                   </Text>
                 )}
               </View>

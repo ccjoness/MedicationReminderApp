@@ -31,6 +31,7 @@ import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/authStore';
 import { ScheduleItem } from './ScheduleItem';
 import { DAY_LABELS, dateToTimeString } from '../utils/date';
+import { useIs24HourFormat } from '../hooks/useTimeFormat';
 import type { Medication, MedicationSchedule } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -118,6 +119,7 @@ export function MedicationForm({
   const [addingSchedule, setAddingSchedule] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
+  const is24Hour = useIs24HourFormat();
 
   // ---------------------------------------------------------------------------
   // Photo handling
@@ -508,7 +510,7 @@ export function MedicationForm({
             >
               <MaterialCommunityIcons name="clock-outline" size={20} color="#6750A4" />
               <Text style={styles.timeButtonText}>
-                {draftTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {draftTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: !is24Hour })}
               </Text>
             </TouchableOpacity>
           )}

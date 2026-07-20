@@ -2,7 +2,8 @@ import { View, StyleSheet, TouchableOpacity, Image, Alert } from 'react-native';
 import { Text, Button, Card } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBadge } from './StatusBadge';
-import { formatTime, timeStringToLabel } from '../utils/date';
+import { formatTime } from '../utils/date';
+import { useIs24HourFormat } from '../hooks/useTimeFormat';
 import type { MedicationLog, Medication } from '../types';
 
 interface Props {
@@ -14,13 +15,10 @@ interface Props {
 }
 
 export function MedicationCard({ medication, log, scheduledTime, onMarkTaken, onPress }: Props) {
+  const is24Hour = useIs24HourFormat();
   const status = log?.status ?? 'pending';
   const canTake = status === 'pending' || status === 'snoozed';
-  const timeLabel = scheduledTime
-    ? typeof scheduledTime === 'string'
-      ? formatTime(scheduledTime)
-      : formatTime(scheduledTime)
-    : null;
+  const timeLabel = scheduledTime ? formatTime(scheduledTime, is24Hour) : null;
 
   const lowStock =
     medication.refill_count !== null &&

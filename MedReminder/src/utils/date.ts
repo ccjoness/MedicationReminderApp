@@ -1,9 +1,20 @@
 /**
- * Format a Date or ISO string as a user-friendly time string, e.g. "8:00 AM".
+ * Format a Date or ISO string as a user-friendly time string.
+ *
+ * @param value     Date or ISO string to format
+ * @param is24Hour  Pass the value from useIs24HourFormat(). Defaults to false (12-hour).
+ *
+ * Examples:
+ *   formatTime(date, false) → "8:05 AM"
+ *   formatTime(date, true)  → "08:05"
  */
-export function formatTime(value: Date | string): string {
+export function formatTime(value: Date | string, is24Hour = false): string {
   const date = typeof value === 'string' ? new Date(value) : value;
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: !is24Hour,
+  });
 }
 
 /**
@@ -55,13 +66,24 @@ export function endOfDay(value: Date | string): Date {
 }
 
 /**
- * Convert a "HH:MM:SS" time string to a human-friendly "H:MM AM/PM" label.
+ * Convert a "HH:MM:SS" time string to a human-friendly label.
+ *
+ * @param timeStr   24-hour time string, e.g. "08:05:00"
+ * @param is24Hour  Pass the value from useIs24HourFormat(). Defaults to false (12-hour).
+ *
+ * Examples:
+ *   timeStringToLabel("08:05:00", false) → "8:05 AM"
+ *   timeStringToLabel("08:05:00", true)  → "08:05"
  */
-export function timeStringToLabel(timeStr: string): string {
+export function timeStringToLabel(timeStr: string, is24Hour = false): string {
   const [h, m] = timeStr.split(':').map(Number);
   const date = new Date();
   date.setHours(h, m, 0, 0);
-  return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  return date.toLocaleTimeString([], {
+    hour: is24Hour ? '2-digit' : 'numeric',
+    minute: '2-digit',
+    hour12: !is24Hour,
+  });
 }
 
 /**

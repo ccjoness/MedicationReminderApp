@@ -1,6 +1,7 @@
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, IconButton } from 'react-native-paper';
 import { DAY_LABELS, timeStringToLabel } from '../utils/date';
+import { useIs24HourFormat } from '../hooks/useTimeFormat';
 import type { MedicationSchedule } from '../types';
 
 interface Props {
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export function ScheduleItem({ schedule, onRemove, onPress }: Props) {
+  const is24Hour = useIs24HourFormat();
   const daysLabel =
     schedule.days_of_week.length === 0
       ? 'Every day'
@@ -27,7 +29,7 @@ export function ScheduleItem({ schedule, onRemove, onPress }: Props) {
     >
       <View style={styles.info}>
         <Text variant="titleSmall" style={styles.time}>
-          {timeStringToLabel(schedule.time_of_day)}
+          {timeStringToLabel(schedule.time_of_day, is24Hour)}
         </Text>
         <Text variant="bodySmall" style={styles.days}>
           {daysLabel}
