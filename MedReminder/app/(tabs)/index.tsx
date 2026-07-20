@@ -10,17 +10,19 @@ import type { MedicationLog } from '@/types';
 
 export default function TodayScreen() {
   const { session } = useAuthStore();
-  const { todayLogs, loading, generateTodayLogs, markAsTaken } = useLogStore();
+  const { todayLogs, loading, fetchTodayLogs, markAsTaken } = useLogStore();
 
-  const load = useCallback(async () => {
-    if (session?.user) {
-      await generateTodayLogs(session.user.id);
-    }
-  }, [session?.user?.id]);
-
+  // fetchTodayLogs only reads — it never inserts rows.
+  // generateTodayLogs (which inserts) is called exactly once in _layout.tsx
+  // when the session is established, preventing the concurrent-insert race
+  // that caused duplicates.
   useEffect(() => {
-    load();
-  }, [load]);
+    fetchTodayLogs();
+  }, []);
+
+  const handleRefresh = useCallback(() => {
+    fetchTodayLogs();
+  }, []);
 
   const handleMarkTaken = async (log: MedicationLog) => {
     await markAsTaken(log.id, log.medication_id);
@@ -73,7 +75,7 @@ export default function TodayScreen() {
           />
         }
         refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={load} tintColor="#6750A4" />
+          <RefreshControl refreshing={loading} onRefresh={handleRefresh} tintColor="#6750A4" />
         }
         contentContainerStyle={todayLogs.length === 0 ? styles.emptyFlex : styles.listContent}
       />

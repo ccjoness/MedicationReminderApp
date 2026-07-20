@@ -80,24 +80,19 @@ export const useLogStore = create<LogState>((set, get) => ({
         const scheduledAt = new Date(today);
         scheduledAt.setHours(hours, minutes, 0, 0);
 
-        // Check whether a log already exists for this exact slot
-        const { data: existing } = await supabase
-          .from('medication_logs')
-          .select('id')
-          .eq('medication_id', medication.id)
-          .eq('user_id', userId)
-          .eq('scheduled_at', scheduledAt.toISOString())
-          .maybeSingle();
-
-        if (!existing) {
-          await supabase.from('medication_logs').insert({
+        // Atomic upsert — if a log already exists for this slot, do nothing.
+        // ignoreDuplicates:true means concurrent calls can never produce duplicate rows.
+        // Requires UNIQUE(medication_id, user_id, scheduled_at) — see schema migration 002.
+        await supabase.from('medication_logs').upsert(
+          {
             medication_id: medication.id,
             user_id: userId,
             scheduled_at: scheduledAt.toISOString(),
             status: 'pending',
             snooze_count: 0,
-          });
-        }
+          },
+          { onConflict: 'medication_id,user_id,scheduled_at', ignoreDuplicates: true }
+        );
       }
     }
 
