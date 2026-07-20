@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { Text, TextInput, Button, Divider, Card, ActivityIndicator } from 'react-native-paper';
 import * as ImagePicker from 'expo-image-picker';
-import { compressAvatarPhoto } from '@/utils/image';
+import { compressAvatarPhoto, uriToBlob } from '@/utils/image';
 import { useAuthStore } from '@/stores/authStore';
 import { supabase } from '@/lib/supabase';
 
@@ -59,8 +59,8 @@ export default function ProfileScreen() {
       const ext = mimeType.split('/')[1] ?? 'jpg';
       const path = `${user.id}/avatar.${ext}`;
 
-      const response = await fetch(compressed.uri);
-      const blob = await response.blob();
+      // Use uriToBlob — fetch(file://...) can return empty body on Android
+      const blob = await uriToBlob(compressed.uri, mimeType);
 
       const { error: uploadError } = await supabase.storage
         .from('medication-photos')
