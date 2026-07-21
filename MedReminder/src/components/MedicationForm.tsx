@@ -22,7 +22,7 @@ import {
 } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
-import { compressMedicationPhoto, uriToBlob } from '../utils/image';
+import { compressMedicationPhoto, readFileAsBytes } from '../utils/image';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -181,16 +181,17 @@ export function MedicationForm({
 
     setUploadingPhoto(true);
     try {
-      // After expo-image-manipulator, photoUri is a file:// path.
-      // fetch(file://...) can return empty body on Android — use uriToBlob instead.
+      // Read the compressed file as a Uint8Array — the most reliable method on Android.
+      // fetch(file://...) and fetch(data:...) both silently return empty bodies,
+      // causing Supabase to respond 400/204. Uint8Array avoids Blob/fetch entirely.
       const ext = photoMimeType.split('/')[1] ?? 'jpg';
       const path = `${userId}/${Date.now()}.${ext}`;
 
-      const blob = await uriToBlob(photoUri, photoMimeType);
+      const bytes = await readFileAsBytes(photoUri);
 
       const { error } = await supabase.storage
         .from('medication-photos')
-        .upload(path, blob, { upsert: true, contentType: photoMimeType });
+        .upload(path, bytes, { upsert: true, contentType: photoMimeType });
 
       if (error) throw error;
 
