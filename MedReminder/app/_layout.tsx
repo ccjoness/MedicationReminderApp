@@ -15,14 +15,12 @@ import {
   registerNotificationCategories,
   requestNotificationPermissions,
   rescheduleAllNotifications,
-  scheduleSnoozeNotification,
-  cancelSnoozeNotificationsForDose,
-  sendImmediateNotification,
-  ACTION_TOOK_IT,
-  ACTION_SNOOZE,
 } from '@/lib/notifications';
+import {
+  handleMedicationNotificationResponse,
+  NOTIFICATION_ACTION_TASK,
+} from '@/lib/notificationActions';
 import { supabase } from '@/lib/supabase';
-import type { NotificationData } from '@/types';
 
 // ---------------------------------------------------------------------------
 // Configure Google Sign-In (called once at module load)
@@ -73,6 +71,26 @@ TaskManager.defineTask(BACKGROUND_TASK, async () => {
   }
 });
 
+// Android requires a registered notification task for action buttons to work
+// while the app is backgrounded or terminated. A foreground response listener
+// alone does not receive those button presses.
+TaskManager.defineTask<Notifications.NotificationTaskPayload>(
+  NOTIFICATION_ACTION_TASK,
+  async ({ data, error }) => {
+    if (error || !data || !('actionIdentifier' in data)) return;
+
+    try {
+      await handleMedicationNotificationResponse(data);
+    } catch (taskError) {
+      console.error('[notification action task]', taskError);
+    }
+  }
+);
+
+Notifications.registerTaskAsync(NOTIFICATION_ACTION_TASK).catch((error) => {
+  console.error('[notification action task registration]', error);
+});
+
 // ---------------------------------------------------------------------------
 // Root layout
 // ---------------------------------------------------------------------------
@@ -121,69 +139,19 @@ export default function RootLayout() {
       minimumInterval: 60 * 24, // 24 hours in minutes
     }).catch(() => undefined);
 
-    const MAX_SNOOZE = 10;
-
-    const responseSub = Notifications.addNotificationResponseReceivedListener(
-      async (response) => {
-        try {
-          const { actionIdentifier, notification } = response;
-          const data = notification.request.content.data as unknown as NotificationData;
-          if (!data?.medicationId) return;
-
-          const userId = useAuthStore.getState().user?.id;
-          if (!userId) return;
-
-          const { medicationId, scheduledAt, medicationName, dosage, snoozeIntervalMinutes } = data;
-          const snoozeCount = data.snoozeCount ?? 0;
-
-          // Include user_id filter for defence-in-depth (don't rely on RLS alone)
-          const { data: log } = await supabase
-            .from('medication_logs')
-            .select('*')
-            .eq('medication_id', medicationId)
-            .eq('scheduled_at', scheduledAt)
-            .eq('user_id', userId)
-            .maybeSingle();
-
-          if (actionIdentifier === ACTION_TOOK_IT) {
-            if (log) {
-              const now = new Date().toISOString();
-              await supabase
-                .from('medication_logs')
-                .update({ status: 'taken', taken_at: now })
-                .eq('id', log.id);
-
-              await cancelSnoozeNotificationsForDose(medicationId, scheduledAt);
-
-              // Atomic decrement via RPC to prevent TOCTOU race condition
-              await supabase.rpc('decrement_refill_count', { med_id: medicationId });
-            }
-          } else if (actionIdentifier === ACTION_SNOOZE) {
-            if (snoozeCount >= MAX_SNOOZE) return; // cap snooze attempts
-
-            if (log) {
-              await supabase
-                .from('medication_logs')
-                .update({ status: 'snoozed', snooze_count: snoozeCount + 1 })
-                .eq('id', log.id);
-            }
-            await scheduleSnoozeNotification(
-              medicationId, medicationName, dosage ?? '',
-              scheduledAt, snoozeIntervalMinutes, snoozeCount + 1
-            );
-          }
-        } catch (err) {
-          // Swallow silently — a crashed notification handler should never
-          // take down the app. Errors are visible in the crash reporter.
-          console.error('[notification handler]', err);
-        }
-      }
-    );
+    // The headless task performs the action. This listener only refreshes the
+    // in-memory Today state when the app is alive, avoiding duplicate snoozes.
+    const responseSub = Notifications.addNotificationResponseReceivedListener(() => {
+      setTimeout(() => {
+        useLogStore.getState().fetchTodayLogs().catch(() => undefined);
+      }, 250);
+    });
 
     const appStateSub = AppState.addEventListener(
       'change',
       async (nextState: AppStateStatus) => {
         if (nextState === 'active' && session?.user) {
+          await useLogStore.getState().fetchTodayLogs();
           const { data: meds } = await supabase
             .from('medications')
             .select('*, schedules:medication_schedules(*)')
