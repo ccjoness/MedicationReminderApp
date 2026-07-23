@@ -127,7 +127,7 @@ export default function RootLayout() {
       async (response) => {
         try {
           const { actionIdentifier, notification } = response;
-          const data = notification.request.content.data as NotificationData;
+          const data = notification.request.content.data as unknown as NotificationData;
           if (!data?.medicationId) return;
 
           const userId = useAuthStore.getState().user?.id;

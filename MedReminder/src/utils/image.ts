@@ -1,5 +1,6 @@
 import * as ImageManipulator from 'expo-image-manipulator';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
+import { decode } from 'base64-arraybuffer';
 
 /**
  * Resize and compress an image URI so it is suitable for upload.
@@ -38,36 +39,31 @@ export const compressAvatarPhoto = (uri: string) =>
   compressImage(uri, 512, 0.6);
 
 /**
- * Read a local file URI and return a Uint8Array of its bytes.
+ * Read a local file URI and return its bytes as an ArrayBuffer.
  *
  * WHY NOT fetch() or Blob:
  *  - `fetch('file://...')` returns an empty body on Android for many URI types
  *  - `fetch('data:...;base64,...')` also silently empties on large strings
  *  - Both approaches caused Supabase to reject the upload (400 / 204)
  *
- * This function reads the file with expo-file-system (always reliable),
- * decodes base64 → binary with `atob` (available in Hermes / New Architecture),
- * and returns a Uint8Array. Supabase Storage accepts Uint8Array directly
- * as ArrayBufferView — no Blob needed.
+ * Supabase's documented React Native upload flow is:
+ * expo-file-system base64 -> base64-arraybuffer decode -> ArrayBuffer upload.
+ * The legacy FileSystem entrypoint is intentional: in Expo SDK 54,
+ * readAsStringAsync from the root entrypoint is deprecated and throws at runtime.
  */
-export async function readFileAsBytes(uri: string): Promise<Uint8Array> {
+export async function readFileAsArrayBuffer(uri: string): Promise<ArrayBuffer> {
   const base64 = await FileSystem.readAsStringAsync(uri, {
     encoding: FileSystem.EncodingType.Base64,
   });
 
-  // atob is available in React Native New Architecture (Hermes)
-  const binaryStr = atob(base64);
-  const bytes = new Uint8Array(binaryStr.length);
-  for (let i = 0; i < binaryStr.length; i++) {
-    bytes[i] = binaryStr.charCodeAt(i);
+  if (!base64) {
+    throw new Error('The compressed image file was empty.');
   }
-  return bytes;
-}
 
-/**
- * @deprecated Use readFileAsBytes instead.
- * Kept for backward compatibility — delegates to readFileAsBytes.
- */
-export async function uriToBlob(uri: string, _mimeType: string): Promise<Uint8Array> {
-  return readFileAsBytes(uri);
+  const buffer = decode(base64);
+  if (buffer.byteLength === 0) {
+    throw new Error('The compressed image contained no uploadable data.');
+  }
+
+  return buffer;
 }

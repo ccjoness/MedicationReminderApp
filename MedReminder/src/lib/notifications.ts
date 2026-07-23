@@ -1,4 +1,3 @@
-import { Platform, Alert, Linking } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import type { Medication, MedicationSchedule } from '../types';
 
@@ -48,9 +47,7 @@ export async function registerNotificationCategories(): Promise<void> {
 
 /**
  * Requests notification permission (POST_NOTIFICATIONS on Android 13+).
- * Also checks the exact-alarm permission on Android 12+ — without it,
- * all DateTrigger notifications schedule silently fail.
- * Returns true only if both POST_NOTIFICATIONS and exact alarms are available.
+ * Returns true when the app can present notifications.
  */
 export async function requestNotificationPermissions(): Promise<boolean> {
   // 1. Basic notification permission (Android 13+ / iOS)
@@ -63,27 +60,6 @@ export async function requestNotificationPermissions(): Promise<boolean> {
   }
 
   if (status !== 'granted') return false;
-
-  // 2. Android 12+: exact-alarm permission check.
-  //    USE_EXACT_ALARM (API 33+) is auto-granted for alarm apps, but
-  //    SCHEDULE_EXACT_ALARM (API 31-32) requires manual user approval.
-  if (Platform.OS === 'android') {
-    const perms = await Notifications.getPermissionsAsync();
-    if (perms.android?.canScheduleExactNotifications === false) {
-      Alert.alert(
-        'Enable Exact Reminders',
-        'Lumidose needs permission to deliver reminders at the exact scheduled time.\n\nPlease tap "Open Settings", then enable "Alarms & Reminders" for Lumidose.',
-        [
-          {
-            text: 'Open Settings',
-            onPress: () => Linking.openSettings(),
-          },
-          { text: 'Not Now', style: 'cancel' },
-        ]
-      );
-      return false; // Scheduling will fail until user grants this
-    }
-  }
 
   return true;
 }

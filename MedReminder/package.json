@@ -12,6 +12,7 @@
     "@react-native-community/datetimepicker": "8.4.4",
     "@react-native-google-signin/google-signin": "^14.0.0",
     "@supabase/supabase-js": "^2.45.0",
+    "base64-arraybuffer": "^1.0.2",
     "expo": "~54.0.0",
     "expo-application": "~7.0.8",
     "expo-background-task": "~1.0.10",

@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { Text, TextInput, Button, Divider, Card, ActivityIndicator } from 'react-native-paper';
 import * as ImagePicker from 'expo-image-picker';
-import { compressAvatarPhoto, readFileAsBytes } from '@/utils/image';
+import { compressAvatarPhoto, readFileAsArrayBuffer } from '@/utils/image';
 import { useAuthStore } from '@/stores/authStore';
 import { supabase } from '@/lib/supabase';
 
@@ -59,12 +59,15 @@ export default function ProfileScreen() {
       const ext = mimeType.split('/')[1] ?? 'jpg';
       const path = `${user.id}/avatar.${ext}`;
 
-      // Read as Uint8Array — avoids fetch/Blob which silently empty on Android
-      const bytes = await readFileAsBytes(compressed.uri);
+      const fileData = await readFileAsArrayBuffer(compressed.uri);
 
       const { error: uploadError } = await supabase.storage
         .from('medication-photos')
-        .upload(path, bytes, { upsert: true, contentType: mimeType });
+        .upload(path, fileData, {
+          upsert: true,
+          contentType: mimeType,
+          cacheControl: '3600',
+        });
 
       if (uploadError) throw uploadError;
 
