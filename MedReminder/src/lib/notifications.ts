@@ -2,6 +2,14 @@ import * as Notifications from 'expo-notifications';
 import type { Medication, MedicationSchedule } from '../types';
 
 // ---------------------------------------------------------------------------
+// Category / action identifiers
+// ---------------------------------------------------------------------------
+
+export const NOTIFICATION_CATEGORY_ID = 'MEDICATION_REMINDER';
+export const ACTION_TOOK_IT = 'TOOK_IT';
+export const ACTION_SNOOZE = 'SNOOZE';
+
+// ---------------------------------------------------------------------------
 // Global notification display handler
 // ---------------------------------------------------------------------------
 
@@ -15,30 +23,48 @@ Notifications.setNotificationHandler({
 });
 
 // ---------------------------------------------------------------------------
-// Category / action identifiers
-// ---------------------------------------------------------------------------
-
-export const NOTIFICATION_CATEGORY_ID = 'MEDICATION_REMINDER';
-export const ACTION_TOOK_IT = 'TOOK_IT';
-export const ACTION_SNOOZE = 'SNOOZE';
-
-// ---------------------------------------------------------------------------
 // Interactive notification categories
+// Register at module load to ensure categories exist before any notifications
+// are scheduled. This is critical for action buttons to work on Android.
 // ---------------------------------------------------------------------------
 
+Notifications.setNotificationCategoryAsync(NOTIFICATION_CATEGORY_ID, [
+  {
+    identifier: ACTION_TOOK_IT,
+    buttonTitle: 'Took it',
+    options: { opensAppToForeground: false },
+  },
+  {
+    identifier: ACTION_SNOOZE,
+    buttonTitle: 'Snooze',
+    options: { opensAppToForeground: false },
+  },
+]).catch((error) => {
+  console.error('[notifications] Failed to register notification category:', error);
+});
+
+/**
+ * Explicitly register notification categories.
+ * This is called after permissions are granted to ensure the category is
+ * properly registered on all platforms.
+ */
 export async function registerNotificationCategories(): Promise<void> {
-  await Notifications.setNotificationCategoryAsync(NOTIFICATION_CATEGORY_ID, [
-    {
-      identifier: ACTION_TOOK_IT,
-      buttonTitle: 'Took it',
-      options: { opensAppToForeground: false },
-    },
-    {
-      identifier: ACTION_SNOOZE,
-      buttonTitle: 'Snooze',
-      options: { opensAppToForeground: false },
-    },
-  ]);
+  try {
+    await Notifications.setNotificationCategoryAsync(NOTIFICATION_CATEGORY_ID, [
+      {
+        identifier: ACTION_TOOK_IT,
+        buttonTitle: 'Took it',
+        options: { opensAppToForeground: false },
+      },
+      {
+        identifier: ACTION_SNOOZE,
+        buttonTitle: 'Snooze',
+        options: { opensAppToForeground: false },
+      },
+    ]);
+  } catch (error) {
+    console.error('[notifications] Failed to register notification category:', error);
+  }
 }
 
 // ---------------------------------------------------------------------------

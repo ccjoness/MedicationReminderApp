@@ -139,13 +139,23 @@ export default function RootLayout() {
       minimumInterval: 60 * 24, // 24 hours in minutes
     }).catch(() => undefined);
 
-    // The headless task performs the action. This listener only refreshes the
-    // in-memory Today state when the app is alive, avoiding duplicate snoozes.
-    const responseSub = Notifications.addNotificationResponseReceivedListener(() => {
-      setTimeout(() => {
-        useLogStore.getState().fetchTodayLogs().catch(() => undefined);
-      }, 250);
-    });
+    // Foreground notification response handler
+    // When the app is in the foreground and the user taps an action button,
+    // this listener processes the action. The headless task handles actions
+    // when the app is in the background or terminated.
+    const responseSub = Notifications.addNotificationResponseReceivedListener(
+      async (response) => {
+        try {
+          await handleMedicationNotificationResponse(response);
+          // Refresh the Today logs after processing the action
+          setTimeout(() => {
+            useLogStore.getState().fetchTodayLogs().catch(() => undefined);
+          }, 250);
+        } catch (error) {
+          console.error('[notification foreground handler]', error);
+        }
+      }
+    );
 
     const appStateSub = AppState.addEventListener(
       'change',
