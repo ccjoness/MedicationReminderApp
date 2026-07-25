@@ -8,9 +8,8 @@ import {
 } from './notifications';
 import type { MedicationLog, NotificationData } from '../types';
 
-export const NOTIFICATION_ACTION_TASK = 'lumidose-notification-actions';
-
 const MAX_SNOOZE_COUNT = 10;
+const processedActionKeys = new Set<string>();
 
 async function getOrCreateLog(
   userId: string,
@@ -22,6 +21,8 @@ async function getOrCreateLog(
     .eq('medication_id', data.medicationId)
     .eq('scheduled_at', data.scheduledAt)
     .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(1)
     .maybeSingle();
 
   if (selectError) throw selectError;
@@ -48,6 +49,8 @@ async function getOrCreateLog(
     .eq('medication_id', data.medicationId)
     .eq('scheduled_at', data.scheduledAt)
     .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(1)
     .single();
 
   if (concurrentError) throw insertError ?? concurrentError;
@@ -55,9 +58,9 @@ async function getOrCreateLog(
 }
 
 /**
- * Process a medication notification action in foreground or headless mode.
- * The function reads auth from persisted Supabase state, so it does not depend
- * on the Zustand store being initialized when Android launches a background task.
+ * Process a medication notification action after Android opens the app.
+ * The function reads auth from persisted Supabase state so it also works for
+ * cold-start responses before the rest of the UI has finished loading.
  */
 export async function handleMedicationNotificationResponse(
   response: Notifications.NotificationResponse
@@ -65,71 +68,81 @@ export async function handleMedicationNotificationResponse(
   const { actionIdentifier, notification } = response;
   if (actionIdentifier !== ACTION_TOOK_IT && actionIdentifier !== ACTION_SNOOZE) return;
 
-  const data = notification.request.content.data as unknown as NotificationData;
-  if (!data?.medicationId || !data?.scheduledAt) return;
+  const actionKey = `${notification.request.identifier}:${actionIdentifier}`;
+  if (processedActionKeys.has(actionKey)) return;
+  processedActionKeys.add(actionKey);
 
-  const { data: sessionData } = await supabase.auth.getSession();
-  const userId = sessionData.session?.user.id;
-  if (!userId) throw new Error('Cannot process medication action without a session.');
+  try {
+    const data = notification.request.content.data as unknown as NotificationData;
+    if (!data?.medicationId || !data?.scheduledAt) return;
 
-  // Never trust notification payload IDs without checking ownership.
-  const { data: medication, error: medicationError } = await supabase
-    .from('medications')
-    .select('id, name, dosage, snooze_interval_minutes, is_active')
-    .eq('id', data.medicationId)
-    .eq('user_id', userId)
-    .eq('is_active', true)
-    .maybeSingle();
+    const { data: sessionData } = await supabase.auth.getSession();
+    const userId = sessionData.session?.user.id;
+    if (!userId) throw new Error('Cannot process medication action without a session.');
 
-  if (medicationError) throw medicationError;
-  if (!medication) return;
-
-  const log = await getOrCreateLog(userId, data);
-
-  if (actionIdentifier === ACTION_TOOK_IT) {
-    // Only the first transition to taken decrements inventory. Replayed actions
-    // are harmless and cannot decrement the refill count twice.
-    const { data: changed, error } = await supabase
-      .from('medication_logs')
-      .update({ status: 'taken', taken_at: new Date().toISOString() })
-      .eq('id', log.id)
+    // Never trust notification payload IDs without checking ownership.
+    const { data: medication, error: medicationError } = await supabase
+      .from('medications')
+      .select('id, name, dosage, snooze_interval_minutes, is_active')
+      .eq('id', data.medicationId)
       .eq('user_id', userId)
-      .neq('status', 'taken')
-      .select('id')
+      .eq('is_active', true)
       .maybeSingle();
 
-    if (error) throw error;
-    if (changed) {
-      const { error: decrementError } = await supabase.rpc('decrement_refill_count', {
-        med_id: data.medicationId,
-      });
-      if (decrementError) throw decrementError;
-    }
+    if (medicationError) throw medicationError;
+    if (!medication) return;
 
-    await cancelSnoozeNotificationsForDose(data.medicationId, data.scheduledAt);
-  }
+    const log = await getOrCreateLog(userId, data);
 
-  if (actionIdentifier === ACTION_SNOOZE) {
-    const nextSnoozeCount = log.snooze_count + 1;
-    if (nextSnoozeCount <= MAX_SNOOZE_COUNT) {
-      const { error } = await supabase
+    if (actionIdentifier === ACTION_TOOK_IT) {
+      // Only the first transition to taken decrements inventory. Replayed actions
+      // are harmless and cannot decrement the refill count twice.
+      const { data: changed, error } = await supabase
         .from('medication_logs')
-        .update({ status: 'snoozed', snooze_count: nextSnoozeCount })
+        .update({ status: 'taken', taken_at: new Date().toISOString() })
         .eq('id', log.id)
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .neq('status', 'taken')
+        .select('id')
+        .maybeSingle();
 
       if (error) throw error;
+      if (changed) {
+        const { error: decrementError } = await supabase.rpc('decrement_refill_count', {
+          med_id: data.medicationId,
+        });
+        if (decrementError) throw decrementError;
+      }
 
-      await scheduleSnoozeNotification(
-        data.medicationId,
-        medication.name,
-        medication.dosage,
-        data.scheduledAt,
-        medication.snooze_interval_minutes,
-        nextSnoozeCount
-      );
+      await cancelSnoozeNotificationsForDose(data.medicationId, data.scheduledAt);
     }
-  }
 
-  await Notifications.dismissNotificationAsync(notification.request.identifier).catch(() => undefined);
+    if (actionIdentifier === ACTION_SNOOZE) {
+      const nextSnoozeCount = log.snooze_count + 1;
+      if (nextSnoozeCount <= MAX_SNOOZE_COUNT) {
+        const { error } = await supabase
+          .from('medication_logs')
+          .update({ status: 'snoozed', snooze_count: nextSnoozeCount })
+          .eq('id', log.id)
+          .eq('user_id', userId);
+
+        if (error) throw error;
+
+        await scheduleSnoozeNotification(
+          data.medicationId,
+          medication.name,
+          medication.dosage,
+          data.scheduledAt,
+          medication.snooze_interval_minutes,
+          nextSnoozeCount
+        );
+      }
+    }
+
+    await Notifications.dismissNotificationAsync(notification.request.identifier).catch(() => undefined);
+  } catch (error) {
+    // Permit retry if processing failed before completion.
+    processedActionKeys.delete(actionKey);
+    throw error;
+  }
 }

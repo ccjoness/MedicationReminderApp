@@ -32,12 +32,12 @@ Notifications.setNotificationCategoryAsync(NOTIFICATION_CATEGORY_ID, [
   {
     identifier: ACTION_TOOK_IT,
     buttonTitle: 'Took it',
-    options: { opensAppToForeground: false },
+    options: { opensAppToForeground: true },
   },
   {
     identifier: ACTION_SNOOZE,
     buttonTitle: 'Snooze',
-    options: { opensAppToForeground: false },
+    options: { opensAppToForeground: true },
   },
 ]).catch((error) => {
   console.error('[notifications] Failed to register notification category:', error);
@@ -54,12 +54,12 @@ export async function registerNotificationCategories(): Promise<void> {
       {
         identifier: ACTION_TOOK_IT,
         buttonTitle: 'Took it',
-        options: { opensAppToForeground: false },
+        options: { opensAppToForeground: true },
       },
       {
         identifier: ACTION_SNOOZE,
         buttonTitle: 'Snooze',
-        options: { opensAppToForeground: false },
+        options: { opensAppToForeground: true },
       },
     ]);
   } catch (error) {

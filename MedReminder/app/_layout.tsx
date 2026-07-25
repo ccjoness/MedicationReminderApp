@@ -18,7 +18,6 @@ import {
 } from '@/lib/notifications';
 import {
   handleMedicationNotificationResponse,
-  NOTIFICATION_ACTION_TASK,
 } from '@/lib/notificationActions';
 import { supabase } from '@/lib/supabase';
 
@@ -71,26 +70,6 @@ TaskManager.defineTask(BACKGROUND_TASK, async () => {
   }
 });
 
-// Android requires a registered notification task for action buttons to work
-// while the app is backgrounded or terminated. A foreground response listener
-// alone does not receive those button presses.
-TaskManager.defineTask<Notifications.NotificationTaskPayload>(
-  NOTIFICATION_ACTION_TASK,
-  async ({ data, error }) => {
-    if (error || !data || !('actionIdentifier' in data)) return;
-
-    try {
-      await handleMedicationNotificationResponse(data);
-    } catch (taskError) {
-      console.error('[notification action task]', taskError);
-    }
-  }
-);
-
-Notifications.registerTaskAsync(NOTIFICATION_ACTION_TASK).catch((error) => {
-  console.error('[notification action task registration]', error);
-});
-
 // ---------------------------------------------------------------------------
 // Root layout
 // ---------------------------------------------------------------------------
@@ -139,23 +118,33 @@ export default function RootLayout() {
       minimumInterval: 60 * 24, // 24 hours in minutes
     }).catch(() => undefined);
 
-    // Foreground notification response handler
-    // When the app is in the foreground and the user taps an action button,
-    // this listener processes the action. The headless task handles actions
-    // when the app is in the background or terminated.
-    const responseSub = Notifications.addNotificationResponseReceivedListener(
-      async (response) => {
-        try {
-          await handleMedicationNotificationResponse(response);
-          // Refresh the Today logs after processing the action
-          setTimeout(() => {
-            useLogStore.getState().fetchTodayLogs().catch(() => undefined);
-          }, 250);
-        } catch (error) {
-          console.error('[notification foreground handler]', error);
-        }
+    const processNotificationResponse = async (
+      response: Notifications.NotificationResponse
+    ) => {
+      try {
+        await handleMedicationNotificationResponse(response);
+        Notifications.clearLastNotificationResponse();
+        await useLogStore.getState().fetchTodayLogs();
+      } catch (error) {
+        console.error('[notification response handler]', error);
       }
+    };
+
+    // Actions open Lumidose, so this listener handles responses while the app
+    // process is alive.
+    const responseSub = Notifications.addNotificationResponseReceivedListener(
+      processNotificationResponse
     );
+
+    // If Android launched the app from a killed state, the response may exist
+    // before the listener is mounted. Process that cold-start response here.
+    if (session?.user) {
+      Notifications.getLastNotificationResponseAsync()
+        .then((response) => {
+          if (response) return processNotificationResponse(response);
+        })
+        .catch((error) => console.error('[last notification response]', error));
+    }
 
     const appStateSub = AppState.addEventListener(
       'change',
