@@ -16,6 +16,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { timeStringToLabel, DAY_LABELS } from '@/utils/date';
 import { useIs24HourFormat } from '@/hooks/useTimeFormat';
 import type { Medication } from '@/types';
+import { colors, layout, spacing } from '@/theme';
 
 export default function MedicationsScreen() {
   const router = useRouter();
@@ -52,7 +53,7 @@ export default function MedicationsScreen() {
       style={styles.deleteAction}
       onPress={() => handleDelete(med)}
     >
-      <MaterialCommunityIcons name="trash-can" size={24} color="#fff" />
+      <MaterialCommunityIcons name="trash-can" size={24} color={colors.onPrimary} />
       <Text style={styles.deleteActionText}>Delete</Text>
     </TouchableOpacity>
   );
@@ -119,7 +120,7 @@ export default function MedicationsScreen() {
   if (loading && medications.length === 0) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#6750A4" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -141,7 +142,7 @@ export default function MedicationsScreen() {
           <RefreshControl
             refreshing={loading}
             onRefresh={fetchMedications}
-            tintColor="#6750A4"
+            tintColor={colors.primary}
           />
         }
         contentContainerStyle={medications.length === 0 ? styles.emptyFlex : styles.listContent}
@@ -151,7 +152,7 @@ export default function MedicationsScreen() {
         icon="plus"
         style={styles.fab}
         onPress={() => router.push('/medications/add')}
-        color="#fff"
+        color={colors.onPrimary}
       />
     </View>
   );
@@ -160,7 +161,7 @@ export default function MedicationsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F6F3FA',
+    backgroundColor: colors.background,
   },
   center: {
     flex: 1,
@@ -168,20 +169,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   listContent: {
-    paddingVertical: 8,
+    paddingVertical: spacing.sm,
     paddingBottom: 100,
   },
   emptyFlex: {
     flex: 1,
   },
   card: {
-    marginHorizontal: 16,
+    marginHorizontal: layout.cardHorizontalMargin,
     marginVertical: 6,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     elevation: 2,
   },
   cardContent: {
-    padding: 14,
+    padding: spacing.lg,
     gap: 6,
   },
   cardHeader: {
@@ -195,17 +196,17 @@ const styles = StyleSheet.create({
   },
   name: {
     fontWeight: '600',
-    color: '#1a1a1a',
+    color: colors.text,
   },
   dosage: {
-    color: '#555',
+    color: colors.textSecondary,
   },
   schedules: {
     gap: 2,
     marginTop: 4,
   },
   scheduleText: {
-    color: '#6750A4',
+    color: colors.primary,
   },
   meta: {
     flexDirection: 'row',
@@ -213,42 +214,42 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   metaText: {
-    color: '#888',
+    color: colors.textMuted,
   },
   lowStockMeta: {
-    color: '#E65100',
+    color: colors.warning,
     fontWeight: '500',
   },
   snoozeText: {
-    color: '#888',
+    color: colors.textMuted,
   },
   lowStockChip: {
-    backgroundColor: '#FFF3E0',
+    backgroundColor: colors.warningContainer,
     height: 24,
   },
   lowStockText: {
     fontSize: 11,
-    color: '#E65100',
+    color: colors.warning,
   },
   deleteAction: {
-    backgroundColor: '#C62828',
+    backgroundColor: colors.error,
     justifyContent: 'center',
     alignItems: 'center',
     width: 80,
     marginVertical: 6,
-    marginRight: 16,
+    marginRight: spacing.lg,
     borderRadius: 8,
     gap: 4,
   },
   deleteActionText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 12,
     fontWeight: '500',
   },
   fab: {
     position: 'absolute',
-    right: 20,
-    bottom: 24,
-    backgroundColor: '#6750A4',
+    right: layout.floatingButtonOffset,
+    bottom: spacing.xl,
+    backgroundColor: colors.primary,
   },
 });

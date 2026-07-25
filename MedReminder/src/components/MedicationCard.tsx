@@ -5,6 +5,7 @@ import { StatusBadge } from './StatusBadge';
 import { formatTime } from '../utils/date';
 import { useIs24HourFormat } from '../hooks/useTimeFormat';
 import type { MedicationLog, Medication } from '../types';
+import { colors, layout, radii, spacing } from '../theme';
 
 interface Props {
   medication: Medication;
@@ -32,7 +33,7 @@ export function MedicationCard({ medication, log, scheduledTime, onMarkTaken, on
           <Image source={{ uri: medication.photo_url }} style={styles.photo} />
         ) : (
           <View style={styles.iconContainer}>
-            <MaterialCommunityIcons name="pill" size={28} color="#6750A4" />
+            <MaterialCommunityIcons name="pill" size={28} color={colors.primary} />
           </View>
         )}
 
@@ -57,7 +58,7 @@ export function MedicationCard({ medication, log, scheduledTime, onMarkTaken, on
 
           {lowStock ? (
             <View style={styles.refillWarning}>
-              <MaterialCommunityIcons name="alert-circle" size={12} color="#E65100" />
+              <MaterialCommunityIcons name="alert-circle" size={12} color={colors.warning} />
               <Text style={styles.refillText}>
                 {medication.refill_count} left — refill soon
               </Text>
@@ -85,10 +86,10 @@ export function MedicationCard({ medication, log, scheduledTime, onMarkTaken, on
 
 const styles = StyleSheet.create({
   card: {
-    marginHorizontal: 16,
-    marginVertical: 6,
-    padding: 12,
-    backgroundColor: '#fff',
+    marginHorizontal: layout.cardHorizontalMargin,
+    marginVertical: layout.cardVerticalMargin,
+    padding: spacing.md,
+    backgroundColor: colors.surface,
     elevation: 2,
   },
   row: {
@@ -99,13 +100,13 @@ const styles = StyleSheet.create({
   photo: {
     width: 52,
     height: 52,
-    borderRadius: 8,
+    borderRadius: radii.medium,
   },
   iconContainer: {
     width: 52,
     height: 52,
     borderRadius: 8,
-    backgroundColor: '#EDE7F6',
+    backgroundColor: colors.primaryContainer,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -122,13 +123,13 @@ const styles = StyleSheet.create({
   name: {
     fontWeight: '600',
     flex: 1,
-    color: '#1a1a1a',
+    color: colors.text,
   },
   dosage: {
-    color: '#555',
+    color: colors.textSecondary,
   },
   notes: {
-    color: '#888',
+    color: colors.textMuted,
     fontStyle: 'italic',
   },
   refillWarning: {
@@ -138,7 +139,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   refillText: {
-    color: '#E65100',
+    color: colors.warning,
     fontSize: 11,
     fontWeight: '500',
   },
@@ -147,8 +148,8 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   takeButton: {
-    borderRadius: 6,
-    backgroundColor: '#6750A4',
+    borderRadius: radii.small,
+    backgroundColor: colors.primary,
   },
   takeLabel: {
     fontSize: 13,

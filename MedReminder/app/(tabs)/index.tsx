@@ -7,6 +7,7 @@ import { MedicationCard } from '@/components/MedicationCard';
 import { EmptyState } from '@/components/EmptyState';
 import { formatDate } from '@/utils/date';
 import type { MedicationLog } from '@/types';
+import { colors, layout, spacing } from '@/theme';
 
 export default function TodayScreen() {
   const { session } = useAuthStore();
@@ -33,7 +34,7 @@ export default function TodayScreen() {
   if (loading && todayLogs.length === 0) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#6750A4" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -75,7 +76,7 @@ export default function TodayScreen() {
           />
         }
         refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={handleRefresh} tintColor="#6750A4" />
+          <RefreshControl refreshing={loading} onRefresh={handleRefresh} tintColor={colors.primary} />
         }
         contentContainerStyle={todayLogs.length === 0 ? styles.emptyFlex : styles.listContent}
       />
@@ -86,7 +87,7 @@ export default function TodayScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F6F3FA',
+    backgroundColor: colors.background,
   },
   center: {
     flex: 1,
@@ -97,20 +98,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#6750A4',
+    paddingHorizontal: layout.screenPadding,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.primary,
   },
   dateLabel: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontWeight: '500',
   },
   countLabel: {
-    color: 'rgba(255,255,255,0.8)',
+    color: colors.onPrimaryMuted,
   },
   listContent: {
-    paddingVertical: 8,
-    paddingBottom: 24,
+    paddingVertical: spacing.sm,
+    paddingBottom: spacing.xl,
   },
   emptyFlex: {
     flex: 1,

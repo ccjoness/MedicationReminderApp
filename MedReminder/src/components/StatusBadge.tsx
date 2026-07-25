@@ -1,12 +1,13 @@
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import type { LogStatus } from '../types';
+import { colors } from '../theme';
 
 const STATUS_CONFIG: Record<LogStatus, { label: string; bg: string; color: string }> = {
-  pending: { label: 'Pending', bg: '#FFF3E0', color: '#E65100' },
-  taken: { label: 'Taken', bg: '#E8F5E9', color: '#2E7D32' },
-  missed: { label: 'Missed', bg: '#FFEBEE', color: '#C62828' },
-  snoozed: { label: 'Snoozed', bg: '#E3F2FD', color: '#1565C0' },
+  pending: { label: 'Pending', bg: colors.warningContainer, color: colors.warning },
+  taken: { label: 'Taken', bg: colors.successContainer, color: colors.success },
+  missed: { label: 'Missed', bg: colors.errorContainer, color: colors.error },
+  snoozed: { label: 'Snoozed', bg: colors.infoContainer, color: colors.info },
 };
 
 interface Props {
@@ -14,7 +15,11 @@ interface Props {
 }
 
 export function StatusBadge({ status }: Props) {
-  const cfg = STATUS_CONFIG[status] ?? { label: status, bg: '#eee', color: '#555' };
+  const cfg = STATUS_CONFIG[status] ?? {
+    label: status,
+    bg: colors.border,
+    color: colors.textSecondary,
+  };
   const { label, bg, color } = cfg;
   return (
     <View style={[styles.badge, { backgroundColor: bg }]}>

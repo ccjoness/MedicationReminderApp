@@ -33,6 +33,7 @@ import { ScheduleItem } from './ScheduleItem';
 import { DAY_LABELS, dateToTimeString } from '../utils/date';
 import { useIs24HourFormat } from '../hooks/useTimeFormat';
 import type { Medication, MedicationSchedule } from '../types';
+import { colors, layout, radii, spacing } from '../theme';
 
 // ---------------------------------------------------------------------------
 // Validation schema
@@ -329,12 +330,12 @@ export function MedicationForm({
       {/* Photo */}
       <TouchableOpacity style={styles.photoButton} onPress={handlePhotoPress}>
         {uploadingPhoto ? (
-          <ActivityIndicator size="small" color="#6750A4" />
+          <ActivityIndicator size="small" color={colors.primary} />
         ) : photoUri ? (
           <Image source={{ uri: photoUri }} style={styles.photo} />
         ) : (
           <View style={styles.photoPlaceholder}>
-            <MaterialCommunityIcons name="camera-plus" size={32} color="#6750A4" />
+            <MaterialCommunityIcons name="camera-plus" size={32} color={colors.primary} />
             <Text style={styles.photoLabel}>Add Photo</Text>
           </View>
         )}
@@ -516,7 +517,7 @@ export function MedicationForm({
               style={styles.timeButton}
               onPress={() => setShowTimePicker(true)}
             >
-              <MaterialCommunityIcons name="clock-outline" size={20} color="#6750A4" />
+              <MaterialCommunityIcons name="clock-outline" size={20} color={colors.primary} />
               <Text style={styles.timeButtonText}>
                 {draftTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: !is24Hour })}
               </Text>
@@ -584,10 +585,10 @@ export function MedicationForm({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F6F3FA',
+    backgroundColor: colors.background,
   },
   content: {
-    padding: 16,
+    padding: layout.formPadding,
     paddingBottom: 40,
     gap: 8,
   },
@@ -604,26 +605,26 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 12,
-    backgroundColor: '#EDE7F6',
+    backgroundColor: colors.primaryContainer,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
   },
   photoLabel: {
-    color: '#6750A4',
+    color: colors.primary,
     fontSize: 12,
   },
   sectionTitle: {
     fontWeight: '700',
-    color: '#333',
+    color: colors.textStrong,
     marginTop: 4,
     marginBottom: 4,
   },
   input: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
   },
   errorText: {
-    color: '#B00020',
+    color: colors.errorDark,
     fontSize: 12,
     marginTop: -4,
     marginLeft: 4,
@@ -645,38 +646,38 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   noScheduleText: {
-    color: '#999',
+    color: colors.textDisabled,
     textAlign: 'center',
     paddingVertical: 12,
     fontStyle: 'italic',
   },
   schedulePicker: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 12,
+    backgroundColor: colors.surface,
+    borderRadius: radii.large,
+    padding: spacing.md,
     marginVertical: 8,
     elevation: 2,
     gap: 8,
   },
   pickerTitle: {
     fontWeight: '600',
-    color: '#333',
+    color: colors.textStrong,
   },
   timeButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    padding: 10,
-    backgroundColor: '#EDE7F6',
-    borderRadius: 8,
+    padding: spacing.md,
+    backgroundColor: colors.primaryContainer,
+    borderRadius: radii.medium,
   },
   timeButtonText: {
-    color: '#6750A4',
+    color: colors.primary,
     fontWeight: '600',
     fontSize: 16,
   },
   daysLabel: {
-    color: '#555',
+    color: colors.textSecondary,
     marginTop: 4,
   },
   daysRow: {
@@ -689,20 +690,20 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#EDE7F6',
+    backgroundColor: colors.primaryContainer,
     alignItems: 'center',
     justifyContent: 'center',
   },
   dayChipSelected: {
-    backgroundColor: '#6750A4',
+    backgroundColor: colors.primary,
   },
   dayChipText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#6750A4',
+    color: colors.primary,
   },
   dayChipTextSelected: {
-    color: '#fff',
+    color: colors.onPrimary,
   },
   pickerActions: {
     flexDirection: 'row',
@@ -712,8 +713,8 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     marginTop: 8,
-    borderRadius: 8,
-    backgroundColor: '#6750A4',
+    borderRadius: radii.medium,
+    backgroundColor: colors.primary,
   },
   submitButtonContent: {
     paddingVertical: 6,

@@ -12,6 +12,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { compressAvatarPhoto, readFileAsArrayBuffer } from '@/utils/image';
 import { useAuthStore } from '@/stores/authStore';
 import { supabase } from '@/lib/supabase';
+import { colors, layout, radii, spacing } from '@/theme';
 
 export default function ProfileScreen() {
   const { profile, user, signOut, updateProfile } = useAuthStore();
@@ -136,7 +137,7 @@ export default function ProfileScreen() {
           )}
           {uploading && (
             <View style={styles.avatarOverlay}>
-              <ActivityIndicator size="small" color="#fff" />
+              <ActivityIndicator size="small" color={colors.onPrimary} />
             </View>
           )}
         </TouchableOpacity>
@@ -198,7 +199,7 @@ export default function ProfileScreen() {
         <Button
           mode="text"
           onPress={handleDeleteAccount}
-          textColor="#C62828"
+          textColor={colors.error}
           icon="delete-forever"
         >
           Delete Account
@@ -211,11 +212,11 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F6F3FA',
+    backgroundColor: colors.background,
   },
   content: {
-    padding: 16,
-    gap: 16,
+    padding: layout.screenPadding,
+    gap: spacing.lg,
     paddingBottom: 40,
   },
   avatarSection: {
@@ -231,47 +232,47 @@ const styles = StyleSheet.create({
     width: 88,
     height: 88,
     borderRadius: 44,
-    backgroundColor: '#6750A4',
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarInitial: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 36,
     fontWeight: 'bold',
   },
   avatarOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: colors.overlay,
     borderRadius: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   changePhotoText: {
-    color: '#6750A4',
+    color: colors.primary,
     marginTop: 8,
   },
   section: {
-    backgroundColor: '#fff',
-    padding: 16,
-    gap: 12,
+    backgroundColor: colors.surface,
+    padding: spacing.lg,
+    gap: spacing.md,
     elevation: 1,
   },
   sectionLabel: {
     fontWeight: '700',
-    color: '#333',
+    color: colors.textStrong,
     marginBottom: 4,
   },
   input: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
   },
   saveButton: {
     marginTop: 4,
-    borderRadius: 8,
-    backgroundColor: '#6750A4',
+    borderRadius: radii.medium,
+    backgroundColor: colors.primary,
   },
   signOutButton: {
-    borderRadius: 8,
+    borderRadius: radii.medium,
   },
   divider: {
     marginVertical: 4,

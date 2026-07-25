@@ -8,6 +8,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { toDateKey, formatTime } from '@/utils/date';
 import { useIs24HourFormat } from '@/hooks/useTimeFormat';
 import type { MedicationLog } from '@/types';
+import { colors, layout, spacing } from '@/theme';
 
 interface MarkedDate {
   marked?: boolean;
@@ -57,12 +58,12 @@ export default function HistoryScreen() {
         const noneTaken = taken === 0;
         marks[key] = {
           marked: true,
-          dotColor: allTaken ? '#2E7D32' : noneTaken ? '#C62828' : '#E65100',
+          dotColor: allTaken ? colors.success : noneTaken ? colors.error : colors.warning,
         };
       }
 
       // Keep selected
-      marks[selectedDate] = { ...marks[selectedDate], selected: true, selectedColor: '#6750A4' };
+      marks[selectedDate] = { ...marks[selectedDate], selected: true, selectedColor: colors.primary };
 
       setMarkedDates(marks);
     } finally {
@@ -113,7 +114,7 @@ export default function HistoryScreen() {
           updated[k] = { ...updated[k], selected: false };
         }
       }
-      updated[key] = { ...updated[key], selected: true, selectedColor: '#6750A4' };
+      updated[key] = { ...updated[key], selected: true, selectedColor: colors.primary };
       return updated;
     });
 
@@ -131,10 +132,10 @@ export default function HistoryScreen() {
         markedDates={markedDates}
         onMonthChange={(month: DateData) => loadMonthData(month.year, month.month)}
         theme={{
-          selectedDayBackgroundColor: '#6750A4',
-          todayTextColor: '#6750A4',
-          arrowColor: '#6750A4',
-          dotColor: '#6750A4',
+          selectedDayBackgroundColor: colors.primary,
+          todayTextColor: colors.primary,
+          arrowColor: colors.primary,
+          dotColor: colors.primary,
           textDayFontSize: 14,
         }}
       />
@@ -155,7 +156,7 @@ export default function HistoryScreen() {
       </View>
 
       {loading ? (
-        <ActivityIndicator size="small" color="#6750A4" style={styles.spinner} />
+        <ActivityIndicator size="small" color={colors.primary} style={styles.spinner} />
       ) : logsForDay.length === 0 ? (
         <Text style={styles.emptyText}>No medications logged for this day.</Text>
       ) : (
@@ -187,25 +188,25 @@ export default function HistoryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F6F3FA',
+    backgroundColor: colors.background,
   },
   content: {
     paddingBottom: 40,
   },
   dayHeader: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
+    paddingHorizontal: layout.screenPadding,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: colors.border,
     gap: 2,
   },
   dayTitle: {
     fontWeight: '600',
-    color: '#1a1a1a',
+    color: colors.text,
   },
   adherenceText: {
-    color: '#6750A4',
+    color: colors.primary,
     fontWeight: '500',
   },
   spinner: {
@@ -213,15 +214,15 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     textAlign: 'center',
-    color: '#999',
+    color: colors.textDisabled,
     marginTop: 32,
-    paddingHorizontal: 24,
+    paddingHorizontal: spacing.xl,
   },
   logCard: {
-    marginHorizontal: 16,
+    marginHorizontal: layout.cardHorizontalMargin,
     marginVertical: 5,
-    backgroundColor: '#fff',
-    padding: 12,
+    backgroundColor: colors.surface,
+    padding: spacing.md,
     elevation: 1,
   },
   logRow: {
@@ -232,17 +233,17 @@ const styles = StyleSheet.create({
   logInfo: {
     flex: 1,
     gap: 2,
-    marginRight: 12,
+    marginRight: spacing.md,
   },
   logName: {
     fontWeight: '600',
-    color: '#1a1a1a',
+    color: colors.text,
   },
   logDosage: {
-    color: '#555',
+    color: colors.textSecondary,
   },
   takenAt: {
-    color: '#2E7D32',
+    color: colors.success,
     fontStyle: 'italic',
   },
 });

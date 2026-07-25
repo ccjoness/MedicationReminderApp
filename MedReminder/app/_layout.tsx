@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
-import { PaperProvider, MD3LightTheme } from 'react-native-paper';
+import { PaperProvider } from 'react-native-paper';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
@@ -20,6 +20,7 @@ import {
   handleMedicationNotificationResponse,
 } from '@/lib/notificationActions';
 import { supabase } from '@/lib/supabase';
+import { appTheme, colors } from '@/theme';
 
 // ---------------------------------------------------------------------------
 // Configure Google Sign-In (called once at module load)
@@ -171,7 +172,7 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <PaperProvider theme={MD3LightTheme}>
+      <PaperProvider theme={appTheme}>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(tabs)" />
@@ -181,7 +182,7 @@ export default function RootLayout() {
               headerShown: true,
               title: 'Add Medication',
               presentation: 'modal',
-              headerTintColor: '#6750A4',
+              headerTintColor: colors.primary,
             }}
           />
           <Stack.Screen
@@ -190,7 +191,7 @@ export default function RootLayout() {
               headerShown: true,
               title: 'Edit Medication',
               presentation: 'modal',
-              headerTintColor: '#6750A4',
+              headerTintColor: colors.primary,
             }}
           />
         </Stack>

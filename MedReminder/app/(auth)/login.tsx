@@ -9,6 +9,7 @@ import {
 } from '@react-native-google-signin/google-signin';
 import { useAuthStore } from '@/stores/authStore';
 import { supabase } from '@/lib/supabase';
+import { colors, spacing } from '@/theme';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -65,7 +66,7 @@ export default function LoginScreen() {
 
       <View style={styles.footer}>
         {loading ? (
-          <ActivityIndicator size="large" color="#6750A4" />
+          <ActivityIndicator size="large" color={colors.primary} />
         ) : (
           <GoogleSigninButton
             size={GoogleSigninButton.Size.Wide}
@@ -82,14 +83,14 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     justifyContent: 'space-between',
     paddingVertical: 80,
-    paddingHorizontal: 32,
+    paddingHorizontal: spacing.xxl,
   },
   header: {
     alignItems: 'center',
-    gap: 12,
+    gap: spacing.md,
     marginTop: 40,
   },
   logo: {
@@ -100,11 +101,11 @@ const styles = StyleSheet.create({
   },
   title: {
     fontWeight: 'bold',
-    color: '#6750A4',
+    color: colors.primary,
     letterSpacing: 1,
   },
   subtitle: {
-    color: '#666',
+    color: colors.textSubtle,
     textAlign: 'center',
     lineHeight: 24,
   },

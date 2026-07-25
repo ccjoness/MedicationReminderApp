@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { colors, layout } from '@/theme';
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -11,11 +12,15 @@ export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#6750A4',
-        tabBarInactiveTintColor: '#999',
-        tabBarStyle: { borderTopWidth: 1, borderTopColor: '#eee' },
-        headerStyle: { backgroundColor: '#6750A4' },
-        headerTintColor: '#fff',
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textDisabled,
+        tabBarStyle: {
+          borderTopWidth: layout.tabBarBorderWidth,
+          borderTopColor: colors.border,
+          backgroundColor: colors.surface,
+        },
+        headerStyle: { backgroundColor: colors.primary },
+        headerTintColor: colors.onPrimary,
         headerTitleStyle: { fontWeight: 'bold' },
       }}
     >

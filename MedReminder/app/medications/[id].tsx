@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useMedicationStore } from '@/stores/medicationStore';
 import { MedicationForm, ScheduleDraft } from '@/components/MedicationForm';
 import type { Medication } from '@/types';
+import { colors, spacing } from '@/theme';
 
 export default function EditMedicationScreen() {
   const router = useRouter();
@@ -41,7 +42,7 @@ export default function EditMedicationScreen() {
     navigation.setOptions({
       headerRight: () => (
         <TouchableOpacity onPress={handleDelete} style={styles.headerButton}>
-          <MaterialCommunityIcons name="trash-can-outline" size={24} color="#C62828" />
+          <MaterialCommunityIcons name="trash-can-outline" size={24} color={colors.error} />
         </TouchableOpacity>
       ),
     });
@@ -50,7 +51,7 @@ export default function EditMedicationScreen() {
   if (!medication) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#6750A4" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -87,7 +88,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
   },
 });
