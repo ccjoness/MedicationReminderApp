@@ -9,23 +9,23 @@ import { MD3LightTheme, type MD3Theme } from 'react-native-paper';
  * app.config.js because Android compiles those into the APK.
  */
 export const colors = {
-  primary: '#6750A4',
-  primaryContainer: '#EDE7F6',
-  primaryContainerSoft: '#F3EEF8',
+  primary: '#225F06',
+  primaryContainer: '#D5EFC8',
+  primaryContainerSoft: '#EDF7E8',
   onPrimary: '#FFFFFF',
 
-  background: '#F6F3FA',
+  background: '#F7FAF5',
   surface: '#FFFFFF',
-  surfaceVariant: '#F5F3F7',
-  border: '#EEEEEE',
+  surfaceVariant: '#EFF4EC',
+  border: '#DCE5D8',
 
-  text: '#1A1A1A',
-  textStrong: '#333333',
-  textSecondary: '#555555',
-  textSubtle: '#666666',
-  textMuted: '#888888',
-  textDisabled: '#999999',
-  iconMuted: '#CCCCCC',
+  text: '#172114',
+  textStrong: '#263323',
+  textSecondary: '#4B5847',
+  textSubtle: '#64705F',
+  textMuted: '#7B8677',
+  textDisabled: '#9AA397',
+  iconMuted: '#C7CDC4',
 
   success: '#2E7D32',
   successContainer: '#E8F5E9',
