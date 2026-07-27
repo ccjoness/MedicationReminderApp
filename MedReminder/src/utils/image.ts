@@ -30,8 +30,8 @@ export async function compressImage(
   return { uri: result.uri, mimeType: 'image/jpeg' };
 }
 
-/** Compress a medication photo: 1024 px max, 50% quality → ~60–150 KB */
-export const compressMedicationPhoto = (uri: string) =>
+/** Compress a mission image: 1024 px max, 50% quality → ~60–150 KB */
+export const compressMissionImage = (uri: string) =>
   compressImage(uri, 1024, 0.5);
 
 /** Compress a profile avatar: 512 px max, 60% quality → ~20–60 KB */

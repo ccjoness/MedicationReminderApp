@@ -57,10 +57,10 @@ export default function LoginScreen() {
           resizeMode="contain"
         />
         <Text variant="displaySmall" style={styles.title}>
-          Lumidose
+          Mission Mode
         </Text>
         <Text variant="bodyLarge" style={styles.subtitle}>
-          Your personal medication tracker
+          Turn intentions into small, finishable missions
         </Text>
       </View>
 

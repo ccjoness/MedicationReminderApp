@@ -1,7 +1,7 @@
 /** @type {import('@expo/config').ExpoConfig} */
 module.exports = {
-  name: 'Lumidose',
-  slug: 'lumidose',
+  name: 'Mission Mode',
+  slug: 'mission-mode',
   version: '1.0.0',
   orientation: 'portrait',
   icon: './assets/icon.png',
@@ -36,7 +36,7 @@ module.exports = {
       'expo-notifications',
       {
         icon: './assets/notification-icon.png',
-        color: '#6750A4',
+        color: '#225F06',
         sounds: [],
         androidMode: 'default',
       },
@@ -44,8 +44,8 @@ module.exports = {
     [
       'expo-image-picker',
       {
-        photosPermission: 'Lumidose accesses your photos to let you add medication images.',
-        cameraPermission: 'Lumidose uses the camera so you can take a photo of your medication.',
+        photosPermission: 'Mission Mode lets you select an image for a mission.',
+        cameraPermission: 'Mission Mode uses the camera so you can add an image to a mission.',
       },
     ],
     'expo-background-task',
@@ -53,7 +53,7 @@ module.exports = {
     // Native Google Sign-In — no iOS URL scheme needed for Android-only
     '@react-native-google-signin/google-signin',
   ],
-  scheme: 'lumidose',
+  scheme: 'missionmode',
   experiments: {
     typedRoutes: true,
   },

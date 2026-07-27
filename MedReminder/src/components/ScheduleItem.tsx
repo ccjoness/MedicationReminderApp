@@ -2,11 +2,11 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, IconButton } from 'react-native-paper';
 import { DAY_LABELS, timeStringToLabel } from '../utils/date';
 import { useIs24HourFormat } from '../hooks/useTimeFormat';
-import type { MedicationSchedule } from '../types';
+import type { MissionSchedule } from '../types';
 import { colors, radii, spacing } from '../theme';
 
 interface Props {
-  schedule: Pick<MedicationSchedule, 'time_of_day' | 'days_of_week'>;
+  schedule: Pick<MissionSchedule, 'time_of_day' | 'days_of_week'>;
   onRemove?: () => void;
   onPress?: () => void;
 }

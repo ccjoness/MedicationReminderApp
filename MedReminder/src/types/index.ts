@@ -6,61 +6,46 @@ export interface Profile {
   created_at: string;
 }
 
-export interface Medication {
+export interface Mission {
   id: string;
   user_id: string;
-  name: string;
-  dosage: string;
+  title: string;
+  description: string | null;
   notes: string | null;
-  photo_url: string | null;
+  image_url: string | null;
   snooze_interval_minutes: number;
-  refill_count: number | null;
-  low_refill_threshold: number | null;
   is_active: boolean;
   created_at: string;
-  schedules?: MedicationSchedule[];
+  schedules?: MissionSchedule[];
 }
 
-export interface MedicationSchedule {
+export interface MissionSchedule {
   id: string;
-  medication_id: string;
-  /** Day numbers: 0=Sunday … 6=Saturday. Empty array means every day. */
+  mission_id: string;
   days_of_week: number[];
-  /** 24-hour time string, e.g. "08:00:00" */
   time_of_day: string;
   created_at: string;
 }
 
-export type LogStatus = 'pending' | 'taken' | 'missed' | 'snoozed';
+export type MissionStatus = 'pending' | 'completed' | 'expired' | 'snoozed';
 
-export interface MedicationLog {
+export interface MissionOccurrence {
   id: string;
-  medication_id: string;
+  mission_id: string;
   user_id: string;
   scheduled_at: string;
-  status: LogStatus;
-  taken_at: string | null;
+  status: MissionStatus;
+  completed_at: string | null;
   snooze_count: number;
   created_at: string;
-  medication?: Medication;
+  mission?: Mission;
 }
 
-export interface TodayMedicationEntry {
-  medication: Medication;
-  schedule: MedicationSchedule;
-  log: MedicationLog | null;
-  scheduledTime: Date;
-}
-
-/**
- * Shape of the data embedded in every medication notification payload.
- */
-export interface NotificationData {
-  medicationId: string;
+export interface MissionNotificationData {
+  missionId: string;
   scheduleId?: string;
   scheduledAt: string;
-  medicationName: string;
-  dosage: string;
+  missionTitle: string;
   snoozeIntervalMinutes: number;
   snoozeCount?: number;
   isSnooze?: boolean;

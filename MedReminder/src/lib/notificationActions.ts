@@ -1,147 +1,98 @@
 import * as Notifications from 'expo-notifications';
 import { supabase } from './supabase';
 import {
+  ACTION_COMPLETE,
   ACTION_SNOOZE,
-  ACTION_TOOK_IT,
-  cancelSnoozeNotificationsForDose,
+  cancelSnoozeNotificationsForOccurrence,
   scheduleSnoozeNotification,
 } from './notifications';
-import type { MedicationLog, NotificationData } from '../types';
+import type { MissionNotificationData, MissionOccurrence } from '../types';
 
 const MAX_SNOOZE_COUNT = 10;
 const processedActionKeys = new Set<string>();
 
-async function getOrCreateLog(
-  userId: string,
-  data: NotificationData
-): Promise<MedicationLog> {
-  const { data: existing, error: selectError } = await supabase
-    .from('medication_logs')
+async function getOrCreateOccurrence(userId: string, payload: MissionNotificationData) {
+  const { data: existing, error } = await supabase
+    .from('mission_occurrences')
     .select('*')
-    .eq('medication_id', data.medicationId)
-    .eq('scheduled_at', data.scheduledAt)
+    .eq('mission_id', payload.missionId)
+    .eq('scheduled_at', payload.scheduledAt)
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
+  if (error) throw error;
+  if (existing) return existing as MissionOccurrence;
 
-  if (selectError) throw selectError;
-  if (existing) return existing as MedicationLog;
-
-  const { data: inserted, error: insertError } = await supabase
-    .from('medication_logs')
+  const { data, error: insertError } = await supabase
+    .from('mission_occurrences')
     .insert({
-      medication_id: data.medicationId,
+      mission_id: payload.missionId,
       user_id: userId,
-      scheduled_at: data.scheduledAt,
+      scheduled_at: payload.scheduledAt,
       status: 'pending',
       snooze_count: 0,
     })
     .select('*')
     .single();
-
-  if (!insertError && inserted) return inserted as MedicationLog;
-
-  // A concurrent app startup may have inserted the row after our first query.
-  const { data: concurrent, error: concurrentError } = await supabase
-    .from('medication_logs')
-    .select('*')
-    .eq('medication_id', data.medicationId)
-    .eq('scheduled_at', data.scheduledAt)
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single();
-
-  if (concurrentError) throw insertError ?? concurrentError;
-  return concurrent as MedicationLog;
+  if (insertError) throw insertError;
+  return data as MissionOccurrence;
 }
 
-/**
- * Process a medication notification action after Android opens the app.
- * The function reads auth from persisted Supabase state so it also works for
- * cold-start responses before the rest of the UI has finished loading.
- */
-export async function handleMedicationNotificationResponse(
-  response: Notifications.NotificationResponse
-): Promise<void> {
+export async function handleMissionNotificationResponse(response: Notifications.NotificationResponse) {
   const { actionIdentifier, notification } = response;
-  if (actionIdentifier !== ACTION_TOOK_IT && actionIdentifier !== ACTION_SNOOZE) return;
+  if (actionIdentifier !== ACTION_COMPLETE && actionIdentifier !== ACTION_SNOOZE) return;
 
   const actionKey = `${notification.request.identifier}:${actionIdentifier}`;
   if (processedActionKeys.has(actionKey)) return;
   processedActionKeys.add(actionKey);
 
   try {
-    const data = notification.request.content.data as unknown as NotificationData;
-    if (!data?.medicationId || !data?.scheduledAt) return;
+    const payload = notification.request.content.data as unknown as MissionNotificationData;
+    if (!payload.missionId || !payload.scheduledAt) return;
+    const userId = (await supabase.auth.getSession()).data.session?.user.id;
+    if (!userId) throw new Error('Cannot process mission action without a session.');
 
-    const { data: sessionData } = await supabase.auth.getSession();
-    const userId = sessionData.session?.user.id;
-    if (!userId) throw new Error('Cannot process medication action without a session.');
-
-    // Never trust notification payload IDs without checking ownership.
-    const { data: medication, error: medicationError } = await supabase
-      .from('medications')
-      .select('id, name, dosage, snooze_interval_minutes, is_active')
-      .eq('id', data.medicationId)
+    const { data: mission, error: missionError } = await supabase
+      .from('missions')
+      .select('id, title, description, snooze_interval_minutes')
+      .eq('id', payload.missionId)
       .eq('user_id', userId)
       .eq('is_active', true)
       .maybeSingle();
+    if (missionError) throw missionError;
+    if (!mission) return;
 
-    if (medicationError) throw medicationError;
-    if (!medication) return;
-
-    const log = await getOrCreateLog(userId, data);
-
-    if (actionIdentifier === ACTION_TOOK_IT) {
-      // Only the first transition to taken decrements inventory. Replayed actions
-      // are harmless and cannot decrement the refill count twice.
-      const { data: changed, error } = await supabase
-        .from('medication_logs')
-        .update({ status: 'taken', taken_at: new Date().toISOString() })
-        .eq('id', log.id)
-        .eq('user_id', userId)
-        .neq('status', 'taken')
-        .select('id')
-        .maybeSingle();
-
+    const occurrence = await getOrCreateOccurrence(userId, payload);
+    if (actionIdentifier === ACTION_COMPLETE) {
+      const { error } = await supabase
+        .from('mission_occurrences')
+        .update({ status: 'completed', completed_at: new Date().toISOString() })
+        .eq('id', occurrence.id)
+        .eq('user_id', userId);
       if (error) throw error;
-      if (changed) {
-        const { error: decrementError } = await supabase.rpc('decrement_refill_count', {
-          med_id: data.medicationId,
-        });
-        if (decrementError) throw decrementError;
-      }
-
-      await cancelSnoozeNotificationsForDose(data.medicationId, data.scheduledAt);
-    }
-
-    if (actionIdentifier === ACTION_SNOOZE) {
-      const nextSnoozeCount = log.snooze_count + 1;
-      if (nextSnoozeCount <= MAX_SNOOZE_COUNT) {
+      await cancelSnoozeNotificationsForOccurrence(payload.missionId, payload.scheduledAt);
+    } else {
+      const nextCount = occurrence.snooze_count + 1;
+      if (nextCount <= MAX_SNOOZE_COUNT) {
         const { error } = await supabase
-          .from('medication_logs')
-          .update({ status: 'snoozed', snooze_count: nextSnoozeCount })
-          .eq('id', log.id)
+          .from('mission_occurrences')
+          .update({ status: 'snoozed', snooze_count: nextCount })
+          .eq('id', occurrence.id)
           .eq('user_id', userId);
-
         if (error) throw error;
-
         await scheduleSnoozeNotification(
-          data.medicationId,
-          medication.name,
-          medication.dosage,
-          data.scheduledAt,
-          medication.snooze_interval_minutes,
-          nextSnoozeCount
+          payload.missionId,
+          mission.title,
+          mission.description,
+          payload.scheduledAt,
+          mission.snooze_interval_minutes,
+          nextCount
         );
       }
     }
-
     await Notifications.dismissNotificationAsync(notification.request.identifier).catch(() => undefined);
   } catch (error) {
-    // Permit retry if processing failed before completion.
     processedActionKeys.delete(actionKey);
     throw error;
   }

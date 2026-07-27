@@ -1,17 +1,17 @@
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import type { LogStatus } from '../types';
+import type { MissionStatus } from '../types';
 import { colors } from '../theme';
 
-const STATUS_CONFIG: Record<LogStatus, { label: string; bg: string; color: string }> = {
+const STATUS_CONFIG: Record<MissionStatus, { label: string; bg: string; color: string }> = {
   pending: { label: 'Pending', bg: colors.warningContainer, color: colors.warning },
-  taken: { label: 'Taken', bg: colors.successContainer, color: colors.success },
-  missed: { label: 'Missed', bg: colors.errorContainer, color: colors.error },
+  completed: { label: 'Completed', bg: colors.successContainer, color: colors.success },
+  expired: { label: 'Not completed', bg: colors.errorContainer, color: colors.error },
   snoozed: { label: 'Snoozed', bg: colors.infoContainer, color: colors.info },
 };
 
 interface Props {
-  status: LogStatus;
+  status: MissionStatus;
 }
 
 export function StatusBadge({ status }: Props) {

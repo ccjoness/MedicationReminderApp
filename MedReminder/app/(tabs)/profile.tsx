@@ -63,7 +63,7 @@ export default function ProfileScreen() {
       const fileData = await readFileAsArrayBuffer(compressed.uri);
 
       const { error: uploadError } = await supabase.storage
-        .from('medication-photos')
+        .from('mission-images')
         .upload(path, fileData, {
           upsert: true,
           contentType: mimeType,
@@ -74,7 +74,7 @@ export default function ProfileScreen() {
 
       // Bucket is private — use a signed URL, not getPublicUrl
       const { data: signed, error: signErr } = await supabase.storage
-        .from('medication-photos')
+        .from('mission-images')
         .createSignedUrl(path, 60 * 60 * 24 * 365);
 
       if (signErr) throw signErr;
@@ -97,7 +97,7 @@ export default function ProfileScreen() {
   const handleDeleteAccount = () => {
     Alert.alert(
       'Delete Account',
-      'This will permanently delete your account and all medication data. This cannot be undone.',
+      'This will permanently delete your account and all mission data. This cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {

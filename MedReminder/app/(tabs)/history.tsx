@@ -1,249 +1,103 @@
 import { useEffect, useState } from 'react';
-import { View, FlatList, StyleSheet, ScrollView } from 'react-native';
-import { Text, ActivityIndicator, Card } from 'react-native-paper';
-import { Calendar, DateData } from 'react-native-calendars';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Card, Text } from 'react-native-paper';
+import { Calendar, type DateData } from 'react-native-calendars';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
 import { StatusBadge } from '@/components/StatusBadge';
-import { toDateKey, formatTime } from '@/utils/date';
+import { formatTime, toDateKey } from '@/utils/date';
 import { useIs24HourFormat } from '@/hooks/useTimeFormat';
-import type { MedicationLog } from '@/types';
+import type { MissionOccurrence } from '@/types';
 import { colors, layout, spacing } from '@/theme';
 
-interface MarkedDate {
-  marked?: boolean;
-  dotColor?: string;
-  selected?: boolean;
-  selectedColor?: string;
-}
+type MarkedDate = { marked?: boolean; dotColor?: string; selected?: boolean; selectedColor?: string };
 
 export default function HistoryScreen() {
   const { session } = useAuthStore();
   const is24Hour = useIs24HourFormat();
-  const [selectedDate, setSelectedDate] = useState<string>(toDateKey(new Date()));
-  const [logsForDay, setLogsForDay] = useState<MedicationLog[]>([]);
+  const [selectedDate, setSelectedDate] = useState(toDateKey(new Date()));
+  const [occurrences, setOccurrences] = useState<MissionOccurrence[]>([]);
   const [markedDates, setMarkedDates] = useState<Record<string, MarkedDate>>({});
   const [loading, setLoading] = useState(false);
-  const [calendarLoading, setCalendarLoading] = useState(false);
 
-  // Load adherence data for the current month to mark calendar dots
-  const loadMonthData = async (year: number, month: number) => {
+  const loadMonth = async (year: number, month: number) => {
     if (!session?.user) return;
-    setCalendarLoading(true);
-    try {
-      const startDate = new Date(year, month - 1, 1);
-      const endDate = new Date(year, month, 0, 23, 59, 59, 999);
-
-      const { data } = await supabase
-        .from('medication_logs')
-        .select('scheduled_at, status')
-        .eq('user_id', session.user.id)
-        .gte('scheduled_at', startDate.toISOString())
-        .lte('scheduled_at', endDate.toISOString());
-
-      if (!data) return;
-
-      // Group by day
-      const byDay: Record<string, { total: number; taken: number }> = {};
-      for (const log of data) {
-        const key = toDateKey(log.scheduled_at);
-        if (!byDay[key]) byDay[key] = { total: 0, taken: 0 };
-        byDay[key].total++;
-        if (log.status === 'taken') byDay[key].taken++;
-      }
-
-      const marks: Record<string, MarkedDate> = {};
-      for (const [key, { total, taken }] of Object.entries(byDay)) {
-        const allTaken = taken === total;
-        const noneTaken = taken === 0;
-        marks[key] = {
-          marked: true,
-          dotColor: allTaken ? colors.success : noneTaken ? colors.error : colors.warning,
-        };
-      }
-
-      // Keep selected
-      marks[selectedDate] = { ...marks[selectedDate], selected: true, selectedColor: colors.primary };
-
-      setMarkedDates(marks);
-    } finally {
-      setCalendarLoading(false);
+    const start = new Date(year, month - 1, 1);
+    const end = new Date(year, month, 0, 23, 59, 59, 999);
+    const { data } = await supabase.from('mission_occurrences').select('scheduled_at, status').eq('user_id', session.user.id).gte('scheduled_at', start.toISOString()).lte('scheduled_at', end.toISOString());
+    const summary: Record<string, { total: number; completed: number }> = {};
+    for (const item of data ?? []) {
+      const key = toDateKey(item.scheduled_at);
+      summary[key] ??= { total: 0, completed: 0 };
+      summary[key].total++;
+      if (item.status === 'completed') summary[key].completed++;
     }
+    const marks: Record<string, MarkedDate> = {};
+    for (const [key, value] of Object.entries(summary)) {
+      marks[key] = { marked: true, dotColor: value.completed === value.total ? colors.success : value.completed === 0 ? colors.error : colors.warning };
+    }
+    marks[selectedDate] = { ...marks[selectedDate], selected: true, selectedColor: colors.primary };
+    setMarkedDates(marks);
   };
 
-  // Load logs for a specific day
   const loadDay = async (dateKey: string) => {
     if (!session?.user) return;
     setLoading(true);
     try {
-      const date = new Date(dateKey + 'T00:00:00');
-      const start = new Date(date);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(date);
-      end.setHours(23, 59, 59, 999);
-
-      const { data } = await supabase
-        .from('medication_logs')
-        .select('*, medication:medications(*)')
-        .eq('user_id', session.user.id)
-        .gte('scheduled_at', start.toISOString())
-        .lte('scheduled_at', end.toISOString())
-        .order('scheduled_at', { ascending: true });
-
-      setLogsForDay((data as MedicationLog[]) ?? []);
-    } finally {
-      setLoading(false);
-    }
+      const { data } = await supabase.from('mission_occurrences').select('*, mission:missions(*)').eq('user_id', session.user.id).gte('scheduled_at', new Date(`${dateKey}T00:00:00`).toISOString()).lte('scheduled_at', new Date(`${dateKey}T23:59:59.999`).toISOString()).order('scheduled_at');
+      setOccurrences((data as MissionOccurrence[]) ?? []);
+    } finally { setLoading(false); }
   };
 
   useEffect(() => {
     const today = new Date();
-    loadMonthData(today.getFullYear(), today.getMonth() + 1);
+    loadMonth(today.getFullYear(), today.getMonth() + 1);
     loadDay(selectedDate);
   }, [session?.user?.id]);
 
-  const handleDayPress = (day: DateData) => {
-    const key = day.dateString;
-    setSelectedDate(key);
-
-    setMarkedDates((prev) => {
-      const updated = { ...prev };
-      // Deselect previous
-      for (const k of Object.keys(updated)) {
-        if (updated[k].selected) {
-          updated[k] = { ...updated[k], selected: false };
-        }
-      }
-      updated[key] = { ...updated[key], selected: true, selectedColor: colors.primary };
-      return updated;
-    });
-
-    loadDay(key);
+  const selectDay = (day: DateData) => {
+    setSelectedDate(day.dateString);
+    setMarkedDates((current) => ({ ...Object.fromEntries(Object.entries(current).map(([key, value]) => [key, { ...value, selected: false }])), [day.dateString]: { ...current[day.dateString], selected: true, selectedColor: colors.primary } }));
+    loadDay(day.dateString);
   };
-
-  const taken = logsForDay.filter((l) => l.status === 'taken').length;
-  const total = logsForDay.length;
-  const adherencePercent = total > 0 ? Math.round((taken / total) * 100) : null;
+  const completed = occurrences.filter((item) => item.status === 'completed').length;
+  const percentage = occurrences.length ? Math.round(completed / occurrences.length * 100) : null;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Calendar
-        onDayPress={handleDayPress}
-        markedDates={markedDates}
-        onMonthChange={(month: DateData) => loadMonthData(month.year, month.month)}
-        theme={{
-          selectedDayBackgroundColor: colors.primary,
-          todayTextColor: colors.primary,
-          arrowColor: colors.primary,
-          dotColor: colors.primary,
-          textDayFontSize: 14,
-        }}
-      />
-
-      <View style={styles.dayHeader}>
-        <Text variant="titleMedium" style={styles.dayTitle}>
-          {new Date(selectedDate + 'T12:00:00').toLocaleDateString([], {
-            weekday: 'long',
-            month: 'long',
-            day: 'numeric',
-          })}
-        </Text>
-        {adherencePercent !== null && (
-          <Text variant="bodySmall" style={styles.adherenceText}>
-            {adherencePercent}% adherence ({taken}/{total})
-          </Text>
-        )}
+      <Calendar onDayPress={selectDay} markedDates={markedDates} onMonthChange={(month: DateData) => loadMonth(month.year, month.month)} theme={{ selectedDayBackgroundColor: colors.primary, todayTextColor: colors.primary, arrowColor: colors.primary, dotColor: colors.primary }} />
+      <View style={styles.header}>
+        <Text variant="titleMedium" style={styles.date}>{new Date(`${selectedDate}T12:00:00`).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</Text>
+        {percentage !== null && <Text variant="bodySmall" style={styles.rate}>{percentage}% complete ({completed}/{occurrences.length})</Text>}
       </View>
-
-      {loading ? (
-        <ActivityIndicator size="small" color={colors.primary} style={styles.spinner} />
-      ) : logsForDay.length === 0 ? (
-        <Text style={styles.emptyText}>No medications logged for this day.</Text>
-      ) : (
-        logsForDay.map((log) => (
-          <Card key={log.id} style={styles.logCard}>
-            <View style={styles.logRow}>
-              <View style={styles.logInfo}>
-                <Text variant="titleSmall" style={styles.logName}>
-                  {log.medication?.name ?? 'Unknown'}
-                </Text>
-                <Text variant="bodySmall" style={styles.logDosage}>
-                  {log.medication?.dosage ?? ''} • {formatTime(log.scheduled_at, is24Hour)}
-                </Text>
-                {log.taken_at && (
-                  <Text variant="bodySmall" style={styles.takenAt}>
-                    Taken at {formatTime(log.taken_at, is24Hour)}
-                  </Text>
-                )}
-              </View>
-              <StatusBadge status={log.status} />
+      {loading ? <ActivityIndicator color={colors.primary} style={styles.spinner} /> : !occurrences.length ? <Text style={styles.empty}>No missions recorded for this day.</Text> : occurrences.map((item) => (
+        <Card key={item.id} style={styles.card}>
+          <View style={styles.row}>
+            <View style={styles.info}>
+              <Text variant="titleSmall" style={styles.title}>{item.mission?.title ?? 'Unknown mission'}</Text>
+              <Text variant="bodySmall" style={styles.time}>Scheduled {formatTime(item.scheduled_at, is24Hour)}</Text>
+              {item.completed_at && <Text variant="bodySmall" style={styles.completed}>Completed {formatTime(item.completed_at, is24Hour)}</Text>}
             </View>
-          </Card>
-        ))
-      )}
+            <StatusBadge status={item.status} />
+          </View>
+        </Card>
+      ))}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    paddingBottom: 40,
-  },
-  dayHeader: {
-    paddingHorizontal: layout.screenPadding,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    gap: 2,
-  },
-  dayTitle: {
-    fontWeight: '600',
-    color: colors.text,
-  },
-  adherenceText: {
-    color: colors.primary,
-    fontWeight: '500',
-  },
-  spinner: {
-    marginTop: 32,
-  },
-  emptyText: {
-    textAlign: 'center',
-    color: colors.textDisabled,
-    marginTop: 32,
-    paddingHorizontal: spacing.xl,
-  },
-  logCard: {
-    marginHorizontal: layout.cardHorizontalMargin,
-    marginVertical: 5,
-    backgroundColor: colors.surface,
-    padding: spacing.md,
-    elevation: 1,
-  },
-  logRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  logInfo: {
-    flex: 1,
-    gap: 2,
-    marginRight: spacing.md,
-  },
-  logName: {
-    fontWeight: '600',
-    color: colors.text,
-  },
-  logDosage: {
-    color: colors.textSecondary,
-  },
-  takenAt: {
-    color: colors.success,
-    fontStyle: 'italic',
-  },
+  container: { flex: 1, backgroundColor: colors.background },
+  content: { paddingBottom: spacing.xxxl },
+  header: { padding: layout.screenPadding, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border },
+  date: { fontWeight: '600', color: colors.text },
+  rate: { color: colors.primary, fontWeight: '500' },
+  spinner: { marginTop: spacing.xxl },
+  empty: { textAlign: 'center', color: colors.textDisabled, marginTop: spacing.xxl },
+  card: { marginHorizontal: layout.cardHorizontalMargin, marginVertical: 5, padding: spacing.md, backgroundColor: colors.surface },
+  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  info: { flex: 1, gap: spacing.xxs, marginRight: spacing.md },
+  title: { fontWeight: '600', color: colors.text },
+  time: { color: colors.textSecondary },
+  completed: { color: colors.success, fontStyle: 'italic' },
 });
