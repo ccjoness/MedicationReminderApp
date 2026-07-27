@@ -1,7 +1,7 @@
 /** @type {import('@expo/config').ExpoConfig} */
 module.exports = {
-  name: 'Mission Mode',
-  slug: 'mission-mode',
+  name: 'Quovi',
+  slug: 'quovi',
   version: '1.0.0',
   orientation: 'portrait',
   icon: './assets/icon.png',
@@ -44,8 +44,8 @@ module.exports = {
     [
       'expo-image-picker',
       {
-        photosPermission: 'Mission Mode lets you select an image for a mission.',
-        cameraPermission: 'Mission Mode uses the camera so you can add an image to a mission.',
+        photosPermission: 'Quovi lets you select an image for a mission.',
+        cameraPermission: 'Quovi uses the camera so you can add an image to a mission.',
       },
     ],
     'expo-background-task',
@@ -53,7 +53,7 @@ module.exports = {
     // Native Google Sign-In — no iOS URL scheme needed for Android-only
     '@react-native-google-signin/google-signin',
   ],
-  scheme: 'missionmode',
+  scheme: 'quovi',
   experiments: {
     typedRoutes: true,
   },

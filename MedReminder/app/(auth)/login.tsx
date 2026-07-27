@@ -57,7 +57,7 @@ export default function LoginScreen() {
           resizeMode="contain"
         />
         <Text variant="displaySmall" style={styles.title}>
-          Mission Mode
+          Quovi
         </Text>
         <Text variant="bodyLarge" style={styles.subtitle}>
           Turn intentions into small, finishable missions

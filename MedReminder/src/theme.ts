@@ -1,7 +1,7 @@
 import { MD3LightTheme, type MD3Theme } from 'react-native-paper';
 
 /**
- * Mission Mode runtime theme and layout tokens.
+ * Quovi runtime theme and layout tokens.
  *
  * React Native does not use CSS for native Android screens. Edit the values in
  * this file to change colors, spacing, and corner radii throughout the app.

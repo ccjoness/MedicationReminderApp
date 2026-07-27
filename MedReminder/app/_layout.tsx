@@ -22,8 +22,11 @@ import { appTheme, colors } from '@/theme';
 
 GoogleSignin.configure({ webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID, scopes: ['profile', 'email'] });
 
-const BACKGROUND_TASK = 'mission-mode-background-reschedule';
-const OLD_BACKGROUND_TASK = 'lumidose-background-reschedule';
+const BACKGROUND_TASK = 'quovi-background-reschedule';
+const LEGACY_BACKGROUND_TASKS = [
+  'lumidose-background-reschedule',
+  'mission-mode-background-reschedule',
+];
 
 TaskManager.defineTask(BACKGROUND_TASK, async () => {
   try {
@@ -80,9 +83,11 @@ export default function RootLayout() {
   useEffect(() => {
     cancelLegacyMedicationNotifications().catch(() => undefined);
     requestNotificationPermissions().then((granted) => granted && registerNotificationCategories());
-    TaskManager.isTaskRegisteredAsync(OLD_BACKGROUND_TASK).then((registered) => {
-      if (registered) BackgroundTask.unregisterTaskAsync(OLD_BACKGROUND_TASK);
-    });
+    for (const taskName of LEGACY_BACKGROUND_TASKS) {
+      TaskManager.isTaskRegisteredAsync(taskName).then((registered) => {
+        if (registered) BackgroundTask.unregisterTaskAsync(taskName);
+      });
+    }
     BackgroundTask.registerTaskAsync(BACKGROUND_TASK, { minimumInterval: 60 * 24 }).catch(() => undefined);
 
     const processResponse = async (response: Notifications.NotificationResponse) => {

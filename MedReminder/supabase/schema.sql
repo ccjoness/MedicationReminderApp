@@ -1,4 +1,4 @@
--- Mission Mode — fresh Supabase schema
+-- Quovi — fresh Supabase schema
 -- Run this file only for a new project. Existing Lumidose databases should run
 -- migrations/003_missions_refactor.sql instead.
 
