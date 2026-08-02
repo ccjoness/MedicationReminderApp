@@ -116,16 +116,3 @@ create policy "Users can update own mission images"
 create policy "Users can delete own mission images"
   on storage.objects for delete to authenticated
   using (bucket_id = 'mission-images' and (storage.foldername(name))[1] = auth.uid()::text);
-
-create or replace function public.delete_user()
-returns void language plpgsql security definer set search_path = public, auth, storage as $$
-begin
-  delete from storage.objects
-    where bucket_id in ('mission-images', 'medication-photos')
-      and (storage.foldername(name))[1] = auth.uid()::text;
-  delete from auth.users where id = auth.uid();
-end;
-$$;
-
-revoke all on function public.delete_user() from public;
-grant execute on function public.delete_user() to authenticated;

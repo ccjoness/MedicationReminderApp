@@ -15,7 +15,7 @@ import { supabase } from '@/lib/supabase';
 import { colors, layout, radii, spacing } from '@/theme';
 
 export default function ProfileScreen() {
-  const { profile, user, signOut, updateProfile } = useAuthStore();
+  const { profile, user, signOut, clearLocalSession, updateProfile } = useAuthStore();
   const [displayName, setDisplayName] = useState(profile?.display_name ?? '');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -105,14 +105,16 @@ export default function ProfileScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              // Delete user data (Supabase cascade handles the rest via FK)
-              const { error } = await supabase.rpc('delete_user');
+              const { error } = await supabase.functions.invoke('delete-account', {
+                method: 'POST',
+              });
               if (error) throw error;
-              await signOut();
-            } catch {
+              await clearLocalSession();
+            } catch (error) {
+              console.error('[delete account]', error);
               Alert.alert(
                 'Delete Error',
-                'Could not delete account. Please contact support.'
+                'Could not delete your account. Check your connection and try again.'
               );
             }
           },

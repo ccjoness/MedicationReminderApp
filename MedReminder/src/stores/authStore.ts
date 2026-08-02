@@ -14,6 +14,7 @@ interface AuthState {
   refreshSession: () => Promise<void>;
   fetchProfile: (userId: string) => Promise<void>;
   signOut: () => Promise<void>;
+  clearLocalSession: () => Promise<void>;
   updateProfile: (updates: Partial<Pick<Profile, 'display_name' | 'avatar_url'>>) => Promise<void>;
 }
 
@@ -70,6 +71,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     get()._subscription?.unsubscribe();
     await supabase.auth.signOut();
     set({ session: null, user: null, profile: null, _subscription: null });
+  },
+
+  clearLocalSession: async () => {
+    get()._subscription?.unsubscribe();
+    try {
+      await supabase.auth.signOut({ scope: 'local' });
+    } finally {
+      // The server may already consider the token invalid after deleting the
+      // Auth user, but the app must still clear its persisted local session.
+      set({ session: null, user: null, profile: null, _subscription: null });
+    }
   },
 
   updateProfile: async (updates) => {
