@@ -1,43 +1,36 @@
-import { MD3LightTheme, type MD3Theme } from 'react-native-paper';
+import { MD3LightTheme } from 'react-native-paper';
+import type { MD3Theme } from 'react-native-paper';
 
-/**
- * Quovi runtime theme and layout tokens.
- *
- * React Native does not use CSS for native Android screens. Edit the values in
- * this file to change colors, spacing, and corner radii throughout the app.
- * Build-time colors such as the splash screen and notification icon remain in
- * app.config.js because Android compiles those into the APK.
- */
 export const colors = {
   primary: '#225F06',
-  primaryContainer: '#D5EFC8',
-  primaryContainerSoft: '#EDF7E8',
+  primaryContainer: '#EDE9FF',
+  primaryContainerSoft: '#F5F3FF',
   onPrimary: '#FFFFFF',
 
-  background: '#F7FAF5',
+  background: '#F7F6FC',
   surface: '#FFFFFF',
-  surfaceVariant: '#EFF4EC',
-  border: '#DCE5D8',
+  surfaceVariant: '#F0EEF5',
+  border: '#D9D5EB',
 
-  text: '#172114',
-  textStrong: '#263323',
-  textSecondary: '#4B5847',
-  textSubtle: '#64705F',
-  textMuted: '#7B8677',
-  textDisabled: '#9AA397',
-  iconMuted: '#C7CDC4',
+  text: '#0D0B22',
+  textStrong: '#1A1340',
+  textSecondary: '#2E2A40',
+  textSubtle: '#5A5270',
+  textMuted: '#7B768F',
+  textDisabled: '#A09AB8',
+  iconMuted: '#C4BBFF',
 
-  success: '#2E7D32',
-  successContainer: '#E8F5E9',
-  warning: '#E65100',
-  warningContainer: '#FFF3E0',
-  error: '#C62828',
-  errorDark: '#B00020',
-  errorContainer: '#FFEBEE',
-  info: '#1565C0',
-  infoContainer: '#E3F2FD',
+  success: '#0A6647',
+  successContainer: '#D4F7EC',
+  warning: '#854F0B',
+  warningContainer: '#FAEEDA',
+  error: '#A32D2D',
+  errorDark: '#7A1F1F',
+  errorContainer: '#FCEBEB',
+  info: '#185FA5',
+  infoContainer: '#E6F1FB',
 
-  overlay: 'rgba(0,0,0,0.4)',
+  overlay: 'rgba(13,11,34,0.4)',
   onPrimaryMuted: 'rgba(255,255,255,0.8)',
 } as const;
 

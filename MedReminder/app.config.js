@@ -13,7 +13,7 @@ module.exports = {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#ffffff',
     },
-    package: 'com.darkmattersoftware.lumidose',
+    package: 'com.darkmattergaming.quovi',
     permissions: [
       'android.permission.RECEIVE_BOOT_COMPLETED',
       'android.permission.VIBRATE',
@@ -60,7 +60,7 @@ module.exports = {
   extra: {
     router: {},
     eas: {
-      projectId: 'e34fdd43-d731-41e4-a755-4ecaef6384dd',
+        "projectId": "20b72cfd-4c36-4337-b437-0a6d967280e7"
     },
   },
   owner: 'ccjoness',
